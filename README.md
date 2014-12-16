@@ -18,6 +18,10 @@ A project for the course [Stackbasierte Sprachen/2014W](http://www.complang.tuwi
 	+ pro schleifendurchgang wird benötigt: curr-state (aktueller Zustand) und tape-sym (aktuelles Zeichen im tape)
 	+ rückgabe: neuen zustand
 	+ falls move-left durchgeführt wird, dann noch innerhalb der schleife
+
+- Format für input file(s) 
+	- program file
+	- tape input file
 	
 **Hauptarbeit**:
 
