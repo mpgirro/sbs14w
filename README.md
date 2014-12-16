@@ -21,6 +21,9 @@ A project for the course [Stackbasierte Sprachen/2014W](http://www.complang.tuwi
 
 - Format für input file(s) 
 	- program file
+		+ 1.Zeile: startzustand
+		+ 2.Zeile: liste der endzustände
+		+ 3.-n.Zeile: transitions der zustände (curr-state, tape-sym, write-sym, next-state, ptr-move)
 	- tape input file
 	
 **Hauptarbeit**:
