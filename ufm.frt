@@ -3,7 +3,7 @@
 \ programed in Forth
 \ 
 
-: transition ( cur-state tape-sym -- cur-state  ) 
+: transition { cur-state tape-sym } ( u1 u2 -- u ) 
 	 over 0 = if
 	 	dup 1 = if
 	 		2drop \ clean up stack - we write new {cur-state,type-sym} now
