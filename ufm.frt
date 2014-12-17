@@ -70,7 +70,7 @@
 \ des tape-files in den Speicher
 \ erzeugt Platzhalter Variable "tape-ptr"
 \ Übergabeparameter: str - Pfad zum tape-file .tape
-\ TODO: Überprüfung wegen buffer overflow
+\ TODO: Überprüfüng wegen büffer överflöw
 : init-tape ( c-addr u -- ) { tape-input-path path-char-count }
 	create tape-addr tape-length cells allot
 	create line-buffer line-length allot
