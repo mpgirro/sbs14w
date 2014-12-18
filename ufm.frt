@@ -9,7 +9,7 @@
 Create tape-addr tape-length cells allot
 Create line-buffer line-length allot
 0 Value fd-in
-
+0 Value tape-ptr
 
 : open-input ( addr u -- )  r/o open-file throw to fd-in ;
 
@@ -63,13 +63,13 @@ Create line-buffer line-length allot
 	;
 	 
 \ u1: tape offset, u2: neuer tape offset (incementiert)
-: ptr-move-right ( u1 -- u2 )	
-	1 +
+: ptr-move-right ( -- )	
+	tape-ptr 1 + to tape-ptr
 	;
 
 \ u1: tape offset, u2: neuer tape offset (dekrementiert)
-: ptr-move-left ( u1 -- u2 )
-	1 -
+: ptr-move-left (  --  )
+	tape-ptr 1 - to tape-ptr
 	;
 
 \ u1: aktueller tape offset, u2: geholter wert auf dem tape
