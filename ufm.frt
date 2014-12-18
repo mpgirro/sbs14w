@@ -96,4 +96,3 @@ Create line-buffer line-length allot
 		repeat
 	\ tape-to-stack ------ zurzeit auskommentiert
 	;
-	
