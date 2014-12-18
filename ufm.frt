@@ -6,6 +6,8 @@
 
 256 Constant tape-length 
 8 Constant line-length 
+1 Constant loop-flag-continue
+0 Constant loop-flag-stop
 Create tape-addr tape-length cells allot
 Create line-buffer line-length allot
 0 Value fd-in
@@ -14,6 +16,11 @@ Create line-buffer line-length allot
 
 : open-input ( addr u -- )  r/o open-file throw to fd-in ;
 : open-output ( addr u -- )  w/o create-file throw to fd-out ;
+
+\ .s word will dump up to the 20 top most elements
+20 maxdepth-.s ! 
+
+: debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
 
 \ liest die Anzahl der Zeilen indem der input 
 \ Zeile für Zeile eingelesen wird und ein counter mitläuft
@@ -41,39 +48,38 @@ Create line-buffer line-length allot
 		drop
 	 2 swap tape-addr swap cells + ! 
 	 1 -  
-	 drop \ counter wird verworfen
+	 drop \ TODO: counter wird hiermit derzeit verworfen
 	;
 	
-\ u1: tape offset, u2: neuer tape offset (incementiert)
-: ptr-move-right ( -- )	
-	tape-ptr 1 + to tape-ptr
-	;
+\ moves the tape-ptr to the cell containing the field representing the right neighbor
+: tape-ptr-move-right ( -- ) tape-ptr 1 + to tape-ptr ;
 
-\ u1: tape offset, u2: neuer tape offset (dekrementiert)
-: ptr-move-left (  --  )
-	tape-ptr 1 - to tape-ptr
-	;
+\ moves the tape-ptr to the cell containing the field representing the left neighbor
+: tape-ptr-move-left ( -- ) tape-ptr 1 - to tape-ptr ;
+	
+\ this word indicates that the tape-ptr will not be moved by this transition --> basically a documentary place holder
+: tape-ptr-move-stay ( -- ) ; 
 
-\ u1: aktueller tape offset, u2: geholter wert auf dem tape
-: tape-fetch ( -- u2 )
-	tape-addr tape-ptr cells + @
-	;
+\ reads the tape value at tape-ptr and returns it
+: tape-read ( -- u ) tape-addr tape-ptr cells + @ ;
  
-: write-tape ( u -- )
-	tape-addr tape-ptr cells + ! ;
+\ writes top of the stack to the tape at tape-ptr
+: tape-write ( u -- ) tape-addr tape-ptr cells + ! ;
 	
-: write-tape-to-file ( addr u -- )
+: tape-to-file ( addr u -- )
 	open-output
+	
+	cr cr ." tape: " cr
 	
 	tape-length 0 u+do
 		tape-addr i cells + @ 
-		cr .s
 		dup
 		1 = if
+			cr ." 1"
 			s" 1" fd-out write-line throw
 		endif
-		cr .s
 		2 = if
+			cr ." blank"
 			s" blank" fd-out write-line throw
 		endif
 	loop
@@ -81,28 +87,31 @@ Create line-buffer line-length allot
 	fd-out close-file throw
 	;
 
-\ u3: neuer state, u4: pointer offset für tape
-\ { cur-state tape-sym }
+\ performs the state transition of the turing machine
+\ u1: current state
+\ u2: current symbol on the tape position
+\ u3: resulting state
+\ u4: new symbol on the current tape position 
 : transition ( u1 u2 -- u3 u4 ) 
 	 over 0 = if
 	 	dup 1 = if
-	 		2drop \ clean up stack - we write new {cur-state,type-sym} now
-	 		1 write-tape \ => write 1 to tape
+	 		2drop \ clean up stack - we set new cur-state and type-sym now
+	 		1 tape-write \ => write 1 to tape
 	 		0 \ next-state to go to
-	 		 ptr-move-right 
-	 		1 \ => loop once again!
+	 		tape-ptr-move-right 
+	 		loop-flag-continue \ = 1
 	 		endif
 	 	dup 2 = if
 	 		2drop 
-	 		1 write-tape
-			1
-	 		\ ptr-move-stay
-	 		1 
+	 		1 tape-write
+			1 \ next-state to go to
+	 		tape-ptr-move-stay
+	 		loop-flag-continue \ = 1
 	 		endif
 	 	endif
 	 over 1 = if \ => terminal state
 	 	2drop
-	 	0 \ do not loop again
+	 	loop-flag-stop \ = 0
 	 	endif
 	;
 
@@ -117,11 +126,11 @@ Create line-buffer line-length allot
 	0
 	1 begin	 
 		0> while 
-			tape-fetch \ => read tape-sym at curr-state position
+			tape-read \ => read tape-sym at curr-state position
 			transition \ => do the transition dance
 		repeat
 	
-	s" output.tape" write-tape-to-file
+	s" result.tape" tape-to-file
 	\ tape-to-stack ------ zurzeit auskommentiert
 	;
 	
