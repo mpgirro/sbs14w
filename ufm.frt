@@ -74,7 +74,7 @@ Create line-buffer line-length allot
 		endif
 		cr .s
 		2 = if
-			s" 2" fd-out write-line throw
+			s" blank" fd-out write-line throw
 		endif
 	loop
 	
