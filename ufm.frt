@@ -76,18 +76,13 @@
 	create line-buffer line-length allot
 	tape-input-path path-char-count r/w open-file throw Value fd-in
 	2 tape-addr !
-	try
+	
 	1 1 begin
 		line-buffer line-length fd-in read-line throw
 	  	while
-			line-buffer s>number? 2drop
+	  		drop line-buffer swap s>number? 2drop
 			tape-addr rot cells + !
 			1 + dup
-			\ iferror
-			\ 	leave 
-			\ then
 	  	repeat
-	  	iferror then
-	 endtry
 	 drop 2 swap tape-addr swap cells + ! \ counter wird durch drop zu beginn verworfen
 	;
