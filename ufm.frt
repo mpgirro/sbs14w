@@ -9,9 +9,11 @@
 Create tape-addr tape-length cells allot
 Create line-buffer line-length allot
 0 Value fd-in
-0 Value tape-ptr
+0 Value fd-out
+1 Value tape-ptr
 
 : open-input ( addr u -- )  r/o open-file throw to fd-in ;
+: open-output ( addr u -- )  w/o create-file throw to fd-out ;
 
 \ liest die Anzahl der Zeilen indem der input 
 \ Zeile für Zeile eingelesen wird und ein counter mitläuft
@@ -25,18 +27,21 @@ Create line-buffer line-length allot
 	\ tape-input-path path-char-count r/w open-file throw Value fd-in
 	\ Create tape-addr tape-length cells allot
 	open-input
-	2 tape-addr !
+	tape-length 0 u+do
+		2 tape-addr i cells + ! \ 2 ist das aktuelle blank symbol - tape wird zu begin mit blank befüllt
+	loop
 	
 	1 1 begin
 		line-buffer line-length fd-in read-line throw
 	  	while
-	  		line-buffer swap s>number? cr .s cr 2drop
+	  		line-buffer swap s>number? 2drop
 			tape-addr rot cells + !
 			1 + dup
 	  	repeat
 		drop
 	 2 swap tape-addr swap cells + ! 
-	 1 - .s cr \ counter wird durch drop zu beginn verworfen
+	 1 -  
+	 drop \ counter wird verworfen
 	;
 	
 \ u1: tape offset, u2: neuer tape offset (incementiert)
@@ -50,16 +55,35 @@ Create line-buffer line-length allot
 	;
 
 \ u1: aktueller tape offset, u2: geholter wert auf dem tape
-: tape-fetch ( u1 -- u2 )
-	tape-addr swap cells + @
+: tape-fetch ( -- u2 )
+	tape-addr tape-ptr cells + @
 	;
  
 : write-tape ( u -- )
 	tape-addr tape-ptr cells + ! ;
+	
+: write-tape-to-file ( addr u -- )
+	open-output
+	
+	tape-length 0 u+do
+		tape-addr i cells + @ 
+		cr .s
+		dup
+		1 = if
+			s" 1" fd-out write-line throw
+		endif
+		cr .s
+		2 = if
+			s" 2" fd-out write-line throw
+		endif
+	loop
+	
+	fd-out close-file throw
+	;
 
 \ u3: neuer state, u4: pointer offset für tape
-\ { cur-state tape-sym tape-ptr }
-: transition ( u1 u2 u5 -- u3 u4 ) 
+\ { cur-state tape-sym }
+: transition ( u1 u2 -- u3 u4 ) 
 	 over 0 = if
 	 	dup 1 = if
 	 		2drop \ clean up stack - we write new {cur-state,type-sym} now
@@ -71,11 +95,13 @@ Create line-buffer line-length allot
 	 	dup 2 = if
 	 		2drop 
 	 		1 write-tape
+			1
 	 		\ ptr-move-stay
-	 		1
+	 		1 
 	 		endif
 	 	endif
 	 over 1 = if \ => terminal state
+	 	2drop
 	 	0 \ do not loop again
 	 	endif
 	;
@@ -88,12 +114,14 @@ Create line-buffer line-length allot
 	\ TODO: transition dynamisch hardcoden
 	\ TODO: prepare stack for execution loop
 	\ words, die wir brauchen könnten: edit-line
-
+	0
 	1 begin	 
 		0> while 
 			tape-fetch \ => read tape-sym at curr-state position
 			transition \ => do the transition dance
 		repeat
+	
+	s" output.tape" write-tape-to-file
 	\ tape-to-stack ------ zurzeit auskommentiert
 	;
 	
