@@ -38,30 +38,7 @@ Create line-buffer line-length allot
 	 2 swap tape-addr swap cells + ! 
 	 1 - .s cr \ counter wird durch drop zu beginn verworfen
 	;
-
-\ u3: neuer state, u4: pointer offset für tape
-\ { cur-state tape-sym tape-ptr }
-: transition ( u1 u2 u5 -- u3 u4 ) 
-	 over 0 = if
-	 	dup 1 = if
-	 		2drop \ clean up stack - we write new {cur-state,type-sym} now
-	 		\ 1 write-tape \ => write 1 to tape ------ zurzeit auskommentiert
-	 		0 \ next-state to go to
-	 		\ tape-ptr ptr-move-right ------ zurzeit auskommentiert
-	 		1 \ => loop once again!
-	 		endif
-	 	dup 2 = if
-	 		2drop 
-	 		\ 1 write-tape ------ zurzeit auskommentiert
-	 		\ ptr-move-stay
-	 		1
-	 		endif
-	 	endif
-	 over 1 = if \ => terminal state
-	 	0 \ do not loop again
-	 	endif
-	;
-	 
+	
 \ u1: tape offset, u2: neuer tape offset (incementiert)
 : ptr-move-right ( -- )	
 	tape-ptr 1 + to tape-ptr
@@ -76,9 +53,32 @@ Create line-buffer line-length allot
 : tape-fetch ( u1 -- u2 )
 	tape-addr swap cells + @
 	;
-	 
+ 
 : write-tape ( u -- )
-	. ;
+	tape-addr tape-ptr cells + ! ;
+
+\ u3: neuer state, u4: pointer offset für tape
+\ { cur-state tape-sym tape-ptr }
+: transition ( u1 u2 u5 -- u3 u4 ) 
+	 over 0 = if
+	 	dup 1 = if
+	 		2drop \ clean up stack - we write new {cur-state,type-sym} now
+	 		1 write-tape \ => write 1 to tape
+	 		0 \ next-state to go to
+	 		 ptr-move-right 
+	 		1 \ => loop once again!
+	 		endif
+	 	dup 2 = if
+	 		2drop 
+	 		1 write-tape
+	 		\ ptr-move-stay
+	 		1
+	 		endif
+	 	endif
+	 over 1 = if \ => terminal state
+	 	0 \ do not loop again
+	 	endif
+	;
 
 : ufm ( program-path-str input-path-str -- [output-stack] )
 
@@ -96,3 +96,4 @@ Create line-buffer line-length allot
 		repeat
 	\ tape-to-stack ------ zurzeit auskommentiert
 	;
+	
