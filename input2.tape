@@ -1,6 +1,5 @@
-h
-0
-1
-1
-1
-1
+Erste Zeile
+Zweite Zeile
+Dritte Zeile
+Vierte Zeile
+Fünfte und letzte Zeile
