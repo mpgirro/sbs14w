@@ -22,20 +22,11 @@ Create line-buffer line-length allot
 
 : debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
 
-\ liest die Anzahl der Zeilen indem der input 
-\ Zeile für Zeile eingelesen wird und ein counter mitläuft
-\ darauf folgt: die größte des benötigten Initialspeichers
-\ weiters reserviert es den Speicher und schreibt dem Inhalt
-\ des tape-files in den Speicher
-\ erzeugt Platzhalter Variable "tape-ptr"
-\ Übergabeparameter: str - Pfad zum tape-file .tape
-\ TODO: Überprüfüng wegen büffer överflöw
-: init-tape ( addr u -- u ) \ { tape-input-path path-char-count } \ rückgabe: counter
-	\ tape-input-path path-char-count r/w open-file throw Value fd-in
-	\ Create tape-addr tape-length cells allot
+\ reads input-file for the tape and initializes tape memory space
+: init-tape ( addr u -- u ) 
 	open-input
 	tape-length 0 u+do
-		2 tape-addr i cells + ! \ 2 ist das aktuelle blank symbol - tape wird zu begin mit blank befüllt
+		2 tape-addr i cells + !
 	loop
 	
 	1 1 begin
@@ -117,20 +108,16 @@ Create line-buffer line-length allot
 
 : ufm ( program-path-str input-path-str -- [output-stack] )
 
-	\ TODO: tape lesen und in den speicher schreiben, constant global variable defined
 	s" input1.tape" init-tape 
 
-	\ TODO: transition dynamisch hardcoden
-	\ TODO: prepare stack for execution loop
-	\ words, die wir brauchen könnten: edit-line
-	0
-	1 begin	 
+	0 \ => init state q0
+	loop-flag-continue begin	  
 		0> while 
 			tape-read \ => read tape-sym at curr-state position
 			transition \ => do the transition dance
 		repeat
 	
 	s" result.tape" tape-to-file
-	\ tape-to-stack ------ zurzeit auskommentiert
+	\ tape-to-stack 
 	;
 	
