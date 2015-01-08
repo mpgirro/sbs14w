@@ -78,14 +78,18 @@ Create line-buffer line-length allot
 	fd-out close-file throw
 	;
 
+\ reads program file and create transition word
+: read-program ( addr u -- )
+
+
 \ performs the state transition of the turing machine
 \ u1: current state
 \ u2: current symbol on the tape position
 \ u3: resulting state
 \ u4: loop flag
 : transition ( u1 u2 -- u3 u4 )
-	 over 0 = if
-	 	dup 1 = if
+	 over 0 = if \ current state
+	 	dup 1 = if \ symbol read on tape
 	 		2drop \ clean up stack - we set new cur-state and type-sym now
 	 		1 tape-write \ => write 1 to tape
 	 		0 \ next-state to go to
