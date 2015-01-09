@@ -24,7 +24,7 @@ Vortschritt:
 - Möglichkeiten die funktionieren könnten: Schreibe das "normale" Transition word wie wir es momentan haben, aber anstatt die States hard zu coden schreiben wir das word hol-mir-den-nächsten-state-aus-dem-file word. Problem: Jedes mal wenn wir das transition word aufrufen wird das Programm file gelesen --> kein Stack feature!
 - Problem: Wie bekommen wir die Werte des Programm files ins transition word ohne das wir das program file beim aufruf von transition lesen? Wir müssen dafür sorgen, das transition "erstellt" wird, und am Ende seiner Definition compiled wird.
 - Wörter/Methoden die eventuell das richtige sein können: 
-  - `compile,`
+	- `compile,`
 	- `[` und `]`
 	- `CREATE` und `DOES>` zb unter [https://www.complang.tuwien.ac.at/forth/gforth/Docs-html/Macros.html#index-compile_002c-_0040var_007b-xt-_002d_002d---_007d--core_002dext-1427](https://www.complang.tuwien.ac.at/forth/gforth/Docs-html/Macros.html#index-compile_002c-_0040var_007b-xt-_002d_002d---_007d--core_002dext-1427)
 	- `'` und `[']`
