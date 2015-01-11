@@ -35,3 +35,6 @@ Vortschritt:
 	- [User defined defining words](https://www.complang.tuwien.ac.at/forth/gforth/Docs-html/User_002ddefined-Defining-Words.html#User_002ddefined-Defining-Words)
 	- `latestxt`
 	- [http://stackoverflow.com/questions/19363904/compile-an-anonymous-word-in-a-compiled-word-in-forth](http://stackoverflow.com/questions/19363904/compile-an-anonymous-word-in-a-compiled-word-in-forth)
+- aktueller Ansatz für transition word: man beginnt mit `: transition` und wechselt dann mit  `[` und `]` zwischen compile und interpretation state hin und her.
+Im compile state sollte man mit `:` sein, also wechselt man mit `[` in den interpretation state wo dann die Schleife für if Überprüfungen der ganzen verschiedenen states der turing machine durchgegangen wird.
+Dabei wird für jeden Schleifen-Durchlauf wieder in den compile state gewechselt um eben den code `over dup ...` usw. zu schreiben. Das gleiche gibt es dann auch für die inneren if Bedingungen.
