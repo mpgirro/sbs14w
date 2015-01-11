@@ -88,8 +88,18 @@ Create line-buffer line-length allot
 \ u3: resulting state
 \ u4: loop flag
 : transition ( u1 u2 -- u3 u4 )
+<<<<<<< Local Changes
+<<<<<<< Local Changes
+	 over 0 = if \ current state
+	 	dup 1 = if
+=======
 	 over 0 = if \ current state
 	 	dup 1 = if \ symbol read on tape
+>>>>>>> External Changes
+=======
+	 over 0 = if \ current state
+	 	dup 1 = if \ symbol read on tape
+>>>>>>> External Changes
 	 		2drop \ clean up stack - we set new cur-state and type-sym now
 	 		1 tape-write \ => write 1 to tape
 	 		0 \ next-state to go to
