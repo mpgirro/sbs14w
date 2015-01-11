@@ -2,7 +2,7 @@
 25 Constant line-length
 create tape-addr tape-length cells allot
 create line-buffer line-length allot
-s" input2.tape" r/w open-file throw Value fd-in
+s" input1.tape" r/w open-file throw Value fd-in
 
 : init-tape ( c-addr u -- ) { tape-input-path path-char-count }
 	2 tape-addr !
