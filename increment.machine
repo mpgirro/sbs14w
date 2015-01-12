@@ -5,15 +5,11 @@
 
 
 start-state
-\n
 stateT1 t
-\n
 state1
 sym-read sym-write next-state tape-ptr-move
 sym-read sym-write next-state tape ptr-move
-\n
 stateT2 t
-\n
 state2
 sym-read sym-write next-state tape-ptr-move
 sym-read sym-write next-state tape ptr-move
