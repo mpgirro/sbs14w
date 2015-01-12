@@ -4,8 +4,25 @@
 0 b 1 1 \ => q0 1 1 qf
 
 
+start-state
+\n
+stateT1 t
+\n
+state1
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move
+\n
+stateT2 t
+\n
+state2
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move
+__EOF__
+
+
 
 startzustand
 endzustand1 endzustand2 => lookup-table bauen um im if (state/transition) das loop-flag-stop zu setzen
 
 curr-state curr-tape-sym write-sym next-state ptr-action
+
