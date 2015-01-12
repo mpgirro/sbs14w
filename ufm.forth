@@ -1,21 +1,47 @@
+#! /usr/bin/env gforth
+
 \
 \ Universal Turing Machine
 \ programed in Forth
 \
 
 
+
+
 10 Constant tape-length
-8 Constant line-length
+8 Constant tape-line-length
 1 Constant loop-flag-continue
 0 Constant loop-flag-stop
 Create tape-addr tape-length cells allot
-Create line-buffer line-length allot
-0 Value fd-in
-0 Value fd-out
+Create tape-line-buffer tape-line-length allot
+0 Value tape-fd-in
+0 Value tape-fd-out
+0 Value machine-fd-in
 1 Value tape-ptr
 
-: open-input ( addr u -- )  r/o open-file throw to fd-in ;
-: open-output ( addr u -- )  w/o create-file throw to fd-out ;
+: open-tape-input ( addr u -- )  r/o open-file throw to tape-fd-in ;
+: open-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
+
+: open-machine-input ( addr u -- )  r/o open-file throw to machine-fd-in ;
+
+\ read machine-file path
+next-arg 2dup 0 0 d<> if 
+	cr ." no path to machine input file provided"
+	bye
+else
+	open-machine-input
+endif
+
+
+\ read tape-file path
+next-arg 2dup 0 0 d<> if 
+	cr ." no path to tape input file provided"
+	bye
+else
+	open-tape-input
+endif
+
+ 
 
 \ .s word will dump up to the 20 top most elements
 20 maxdepth-.s !
@@ -24,15 +50,15 @@ Create line-buffer line-length allot
 
 \ reads input-file for the tape and initializes tape memory space
 : init-tape ( addr u -- u )
-	open-input
+	open-tape-input
 	tape-length 0 u+do
 		2 tape-addr i cells + !
 	loop
 
 	1 1 begin
-		line-buffer line-length fd-in read-line throw
+		tape-line-buffer tape-line-length tape-fd-in read-line throw
 	  	while
-	  		line-buffer swap s>number? 2drop
+	  		tape-line-buffer swap s>number? 2drop
 			tape-addr rot cells + !
 			1 + dup
 	  	repeat
@@ -67,20 +93,52 @@ Create line-buffer line-length allot
 		dup
 		1 = if
 			cr ." 1"
-			s" 1" fd-out write-line throw
+			s" 1" tape-fd-out write-line throw
 		endif
 		2 = if
 			cr ." blank"
-			s" blank" fd-out write-line throw
+			s" blank" tape-fd-out write-line throw
 		endif
 	loop
 
-	fd-out close-file throw
+	tape-fd-out close-file throw
 	;
 
-\ reads program file and create transition word
-: read-program ( addr u -- )
+\ reads next element of line in program file
+: get-next-elem
+;
 
+: prog-has-next-state ( ... - n )
+	
+;
+
+: prog-get-cur-state ( ... - n )
+	
+;
+
+: is-terminal-state ( ... - n )
+	
+;
+
+: prog-has-next-edge (  )
+	
+;
+
+: prog-get-read-symbol
+	get-next-elem
+;
+
+: prog-get-write-symbol
+	get-next-elem
+;
+
+: prog-get-next-state
+	get-next-elem
+;
+
+: prog-get-ptr-move
+	get-next-elem
+;
 
 \ performs the state transition of the turing machine
 \ u1: current state
@@ -110,11 +168,38 @@ Create line-buffer line-length allot
 	 	endif
 	;
 
+: trans-test
+	 [ [BEGIN] prog-has-next-state [WHILE] ]
+	 	over [ prog-get-cur-state ] literal = if
+	 		[ is-terminal-state [IF] ] 
+		 		2drop
+		 		loop-flag-stop \ = 0
+	 		[ [ELSE] ]
+	 			[ [BEGIN] prog-has-next-edge [WHILE] ]
+					dup [ prog-get-read-symbol ] literal = if
+						2drop 
+						[ prog-get-write-symbol ] literal tape-write
+						[ prog-get-next-state ] literal \ next-state to go to
+						[ prog-get-ptr-move ] \ left, right or stay
+						loop-flag-continue \ = 1
+						endif
+				[ [REPEAT] ]
+			[ [ENDIF] ]
+		 	endif
+	 [ [REPEAT] ]
+	 ; 
+
+
 : ufm ( program-path-str input-path-str -- [output-stack] )
 
 	s" input1.tape" init-tape
 
 	0 \ => init state q0
+	
+	\ read states and edges, stuff
+	
+	
+	
 	loop-flag-continue begin
 		0> while
 			tape-read \ => read tape-sym at curr-state position
