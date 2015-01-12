@@ -18,11 +18,31 @@ Create tape-line-buffer tape-line-length allot
 0 Value tape-fd-out
 0 Value machine-fd-in
 1 Value tape-ptr
+0 Value start-state
+0 Value machine-line-cursor \ hold current line for the machine file parsing 
+0 Value token-cur-state 
+0 Value token-sym-read
+0 Value token-sym-write
+0 Value token-next-state
+0 Value token-tape-ptr-move
+0 Value is-terminal-state
+
+32 Constant machine-line-length
+Create machine-line-buffer machine-line-length chars allot
+
 
 : open-tape-input ( addr u -- )  r/o open-file throw to tape-fd-in ;
 : open-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
 
-: open-machine-input ( addr u -- )  r/o open-file throw to machine-fd-in ;
+: read-next-machine-line ( -- )
+	machine-line-buffer machine-line-length machine-fd-in read-line throw
+	;
+
+: open-machine-input ( addr u -- )  
+	r/o open-file throw to machine-fd-in \ create the file decriptor for the file
+	read-next-machine-line \ read the first line of machine file (= start state)
+	machine-line-buffer swap s>number? 2drop to start-state \ set the start state 
+	;
 
 \ read machine-file path
 next-arg 2dup 0 0 d<> if 
@@ -31,7 +51,6 @@ next-arg 2dup 0 0 d<> if
 else
 	open-machine-input
 endif
-
 
 \ read tape-file path
 next-arg 2dup 0 0 d<> if 
@@ -103,24 +122,74 @@ endif
 
 	tape-fd-out close-file throw
 	;
+	
+: str-split ( str len separator len -- tokens count )
+  here >r 2swap
+  begin
+    2dup 2,             \ save this token ( addr len )
+    2over search        \ find next separator
+  while
+    dup negate  here 2 cells -  +!  \ adjust last token length
+    2over nip /string               \ start next search past separator
+  repeat
+  2drop 2drop
+  r>  here over -   ( tokens length )
+  dup negate allot           \ reclaim dictionary
+  2 cells / 				\ turn byte length into token count
+  ;                
 
 \ reads next element of line in program file
+\ TODO: brauchen wir das wirklich? oder erledigen wir das mit get-next-token? oder has-next-state? häääää????
 : get-next-elem
+	\ liest nächtes element aus der aktuellen zeile und gibt es zurück
+	machine-line-buffer 
 ;
 
-: prog-has-next-state ( ... - n )
+: cast-next-token ( addr --  )
+	2@ s>number? 2drop
+	; 
 	
-;
 
-: prog-get-cur-state ( ... - n )
-	
-;
+\ checks if a new state is defined in the machine file. sets the token variable in this case, returns a flag
+: machine-has-next-state ( - n )
+	\ ließt eine Zeile des files in den buffer
+	\ prüft ob zeile einen state beinhaltet oder __EOF__
+	\ returns boolean flag ( -1  = true, 0 = false )
+	0 to is-terminal-state \ reset the flag, we don't know if the new one will be one or not
+	read-next-machine-line \ writes the line to the buffer
+	machine-line-buffer s"  " str-split \ parse the tokens
+	dup 1 = if
+		swap 2@ 2dup newline str= if 
+			0 \ has no next state, finish parsing
+		else \ this opens the new state to process
+			( token-str token-len )
+			s>number? 2drop to token-cur-state \ set token for new state to process
+			-1 \ return flag: has next state = true
+		endif
+	dup 2 = if \ check if we process a terminal state
+		swap 2@ s>number? 2drop to token-cur-state \ read the state token
+		swap 2@ s>number? 2drop s" t" str<> if \ check the state mark for a 't'
+			cr token-cur-state type ." state has an additional mark, but is not marked as a terminal!"
+		endif
+		
+		is-terminal-state to -1 \ mark this state as a terminal state
+		-1 \ has next state: true
+	else
+		0 \ has no next state, finish parsing
+	endif
+	;
 
-: is-terminal-state ( ... - n )
-	
-;
-
-: prog-has-next-edge (  )
+: machine-has-next-edge (  )
+	\ ließt nächste zeile des files in den buffer
+	\ prüft ob buffer ein new-line beinhaltet (= ende der edges des states)
+	\ retunes true (= -1) wenn noch eine edge-line, false (=0) wenn state zu ende
+	read-next-machine-line \ writes the line to the buffer
+	dup 4 = if
+		swap 2@ s>number? 2drop to token-cur-state
+		\ TODO
+	else
+		cr ." chaos and madness!"
+	endif
 	
 ;
 
@@ -169,13 +238,13 @@ endif
 	;
 
 : trans-test
-	 [ [BEGIN] prog-has-next-state [WHILE] ]
-	 	over [ prog-get-cur-state ] literal = if
+	 [ [BEGIN] machine-has-next-state [WHILE] ]
+	 	over [ token-cur-state ] literal = if
 	 		[ is-terminal-state [IF] ] 
 		 		2drop
 		 		loop-flag-stop \ = 0
 	 		[ [ELSE] ]
-	 			[ [BEGIN] prog-has-next-edge [WHILE] ]
+	 			[ [BEGIN] machine-has-next-edge [WHILE] ]
 					dup [ prog-get-read-symbol ] literal = if
 						2drop 
 						[ prog-get-write-symbol ] literal tape-write
@@ -194,7 +263,7 @@ endif
 
 	s" input1.tape" init-tape
 
-	0 \ => init state q0
+	start-state \ => init state q0
 	
 	\ read states and edges, stuff
 	
