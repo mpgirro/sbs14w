@@ -142,6 +142,8 @@ endif
   ;                
 
 \ fetches the next token from the current edge line processed
+\ addr: tokens addr
+\ u: symbol read
 : get-next-edge-token ( addr -- u )
 	2@ s>number? 2drop
 	;
@@ -150,17 +152,16 @@ endif
 	get-next-edge-token to token-sym-read
 ;
 
-: machine-get-write-symbol
-	get-next-elem
+: machine-get-sym-write
+	get-next-edge-token to token-sym-write
 ;
 
 : machine-get-next-state
-	get-next-elem
+	get-next-edge-token to token-next-state
 ;
 
 : machine-get-ptr-move
-	get-next-elem \ ??? nicht oder? ist doch der stack affect als argument, oder???
-	\ TODO, should call tape-ptr-move-right, tape-ptr-move-left or tape-ptr-move-stay
+	get-next-edge-token
 	CASE
 		-1 OF POSTPONE tape-ptr-move-left  ENDOF
 		 0 OF POSTPONE tape-ptr-move-right ENDOF
@@ -219,11 +220,11 @@ endif
 	else
 		machine-line-buffer swap s"  " str-split \ parse the tokens ( str len sep len -- tokens count )
 		4 = if
-			dup machine-get-sym-read \ TODO: sollte von get-next-elem gemacht werden
-			dup 2@ s>number? 2drop to token-sym-write
-			dup 2@ s>number? 2drop to token-next-state
-			2@ s>number? 2drop to token-tape-ptr-move
-			-1
+			dup machine-get-sym-read
+			dup machine-get-sym-write
+			dup machine-get-next-state
+			machine-get-ptr-move
+			-1 \ return true flag, next edge found and tokens set
 		else \ we did not detect a line containing 4 tokens. this means we have reached another state definition
 			drop \ drop token-addr
 			0 \ no next edge, return false
