@@ -1,24 +1,11 @@
-0 \ => q0
-1 \ => qf
-0 1 1 0 [l|s|r] \ => q0 1 1 q0 ptr-action
-0 b 1 1 \ => q0 1 1 qf
-
-
 start-state
-stateT1 t
+stateT1 yes
 state1
 sym-read sym-write next-state tape-ptr-move
 sym-read sym-write next-state tape ptr-move
-stateT2 t
+stateT2 no
+stateT3 foobar
 state2
 sym-read sym-write next-state tape-ptr-move
 sym-read sym-write next-state tape ptr-move
-__EOF__
-
-
-
-startzustand
-endzustand1 endzustand2 => lookup-table bauen um im if (state/transition) das loop-flag-stop zu setzen
-
-curr-state curr-tape-sym write-sym next-state ptr-action
 
