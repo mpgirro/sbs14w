@@ -1,0 +1,11 @@
+start-state
+stateT1 yes
+state1
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move
+stateT2 no
+stateT3 foobar
+state2
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move
+
