@@ -21,6 +21,7 @@ tape-ptr Value tape-right-rim
 0 Value token-sym-read
 0 Value token-sym-write
 0 Value token-next-state
+0 Value token-ptr-move
 0 Value token-tape-ptr-move
 0 Value is-terminal-state
 
@@ -214,16 +215,10 @@ next-arg 2dup 0 0 d<> [IF]
 	;
 
 : machine-get-ptr-move ( C: token-addr -- ; I: -- )
-	get-next-edge-token 
-    ( n )
-	CASE
-		-1 OF POSTPONE tape-ptr-move-left  ENDOF
-		 0 OF POSTPONE tape-ptr-move-right ENDOF
-		 1 OF POSTPONE tape-ptr-move-stay  ENDOF
-	ENDCASE
+	get-next-edge-token to token-ptr-move
 	;
 
-see machine-get-ptr-move
+\ see machine-get-ptr-move
 
 \ checks if a new state is defined in the machine file. 
 \ sets the token variable in this case, returns a flag
@@ -249,25 +244,62 @@ see machine-get-ptr-move
 			machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens ( token-addr token-len )
     	endif
     endif
-		
-    ( token-addr token-len )
-	dup 1 = if ( token-addr token-len ) \ when it is one, there is a next state
-		drop ( token-addr ) 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
-		0 0 \ no label-str for this state (not a terminal state)
-		-1 \ return flag: has next state = true
-	dup 2 = if \ check if we process a terminal state
-		dup ( tok-addr tok-addr ) 2@ s>number? 2drop to token-cur-state \ read the state token
-		cell+ cell+ ( tok-addr )
-		2@ s>number? 2drop ( str-addr str-len )			
-		-1 to is-terminal-state \ mark this state as a terminal state
-		-1 \ has next state: true 
-	    ( str-addr str-len flag )
-	0 = if
-		0 0 0 \ return false -> end of file
-	else
+    
+    case
+    	1 of 
+    		\ when it is one, there is a next state
+			 ( token-addr ) cr ." 2@ Nr 1:" cr .s cr 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
+			0 0 \ no label-str for this state (not a terminal state)
+			-1 \ return flag: has next state = true
+		endof
+		2 of
+			dup ( tok-addr tok-addr ) 
+			cr ." 2@ Nr 2:" cr .s cr 
+			2@ s>number? 2drop to token-cur-state \ read the state token
+			cell+ cell+ ( tok-addr )
+			\ read the terminal state label (= what is printed when machine terminates)
+			cr ." 2@ Nr 3: " cr .s cr 
+			2@ \ s>number? 2drop \ SO EIN BLÖDSINN!
+			cr ." after 2@ Nr 3: " cr .s cr 2dup type cr
+			
+		    ( str-addr str-len )			
+			-1 to is-terminal-state \ mark this state as a terminal state
+			-1 \ has next state: true 
+			 ( str-addr str-len flag )
+		endof
+		0 of 
+			 ( token-addr ) drop
+			0 0 0 \ return false -> end of file
+		endof
+	    \ ELSE:
+	    ( ... n )
+	    >r \ write n to return stack (we need it at the end for the endcase)
 		cr ." malformed sytnax in machine file for state: " machine-line-buffer swap type cr 
 		0 0 0 \ return false --> error in machine file syntax, terminate
-	endif
+		r> \ get this tedious n back...
+	    ( ... n )
+    endcase
+		
+\    ( token-addr token-len )
+\ 	dup 1 = if ( token-addr token-len ) \ when it is one, there is a next state
+\ 		drop ( token-addr ) cr ." 2@ Nr 1:" cr .s cr 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
+\ 		0 0 \ no label-str for this state (not a terminal state)
+\ 		-1 \ return flag: has next state = true
+\ 	endif
+\ 	dup 2 = if \ check if we process a terminal state
+\ 		swap dup ( token-len tok-addr tok-addr ) cr ." 2@ Nr 2:" cr .s cr 2@ s>number? 2drop to token-cur-state \ read the state token
+\ 		cell+ cell+ ( token-len tok-addr )
+\ 		cr ." 2@ Nr 3: " cr .s cr 2@ s>number? 2drop ( token-len str-addr str-len )			
+\  		-1 to is-terminal-state \ mark this state as a terminal state
+\ 		-1 \ has next state: true 
+\ 	    ( token-len str-addr str-len flag )
+\ 	endif
+\ 	0 = if
+\ 		0 0 0 \ return false -> end of file
+\ 	else
+\ 		cr ." malformed sytnax in machine file for state: " machine-line-buffer swap type cr 
+\ 		0 0 0 \ return false --> error in machine file syntax, terminate
+\ 	endif
 	;
 	
 : machine-has-next-edge ( -- token-addr token-len flag )
@@ -298,7 +330,7 @@ see machine-get-ptr-move
             ( token-addr token-len 0 )
 		endif	
 	endif
-;
+	;
 
 
 
@@ -338,9 +370,11 @@ see machine-get-ptr-move
 	 	machine-has-next-state
 	    ( str-addr str-len flag ) 
 	  while
-	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE = POSTPONE if
+	  	>r >r
+	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE =  POSTPONE if 
 	 		is-terminal-state if
-	 		    ( u1 u2 str-addr str-len ) 
+	 			r> r>
+	 			( u1 u2 str-addr str-len ) 
 	 		    swap
 	 		    ( u1 u2 str-len str-addr )
 	 		    POSTPONE literal POSTPONE literal 
@@ -350,8 +384,10 @@ see machine-get-ptr-move
 		 		POSTPONE 2drop	 		 
 		 		0 POSTPONE literal \ return false, stop machine loop
 		 	    (  )
-		 		0 0 0 ( token-addr token-len flag)
+		 		0 0 0 ( C: token-addr token-len flag )
+		 		>r >r >r \ push compile-time stack effect to return stack, so that the postponed endif will find his origin
 	 		else
+	 			r> r> \ get back from return stack
 	 		    ( C: str-addr str-len )
 	 		    2drop \ those should be 0 0 --> no label for non-terminal states
 	 			begin 
@@ -359,24 +395,38 @@ see machine-get-ptr-move
 	 			    ( C: token-addr token-len flag )
 	 			while
 	 			    ( C: token-addr token-len )
-	 			    2drop
-					POSTPONE dup machine-get-read-symbol POSTPONE literal POSTPONE = POSTPONE if
-					    ( u1 u2 )
-						POSTPONE 2drop \ drop u1 u2
-						machine-get-write-symbol POSTPONE literal POSTPONE tape-write 
-						machine-get-next-state POSTPONE literal \ next-state to go to
-						machine-get-ptr-move \ TODO: BRAUCHEN WIR HIER EIN POSTPONE?! --> das word soll sofort aufgerufen werden, aber den code des tape-ptr-move words erst in der transition ausgeführt, also schon, oder? oder müssen die calls im machine-get-ptr-move postponed werden? (was sie derzeit sind) \ left, right or stay
+	 			    2drop \ edge token line is read an token-vals are set, drop the token array adress
+					POSTPONE dup token-sym-read POSTPONE literal POSTPONE = POSTPONE if
+					    ( I: u1 u2 )
+						POSTPONE 2drop \ drop u1 u2  
+						token-sym-write POSTPONE literal POSTPONE tape-write 
+						token-next-state POSTPONE literal \ next-state to go to
+						token-ptr-move 
+						( C: n )
+						case
+							-1 of POSTPONE tape-ptr-move-left  endof
+		 					 0 of POSTPONE tape-ptr-move-right endof
+		 					 1 of POSTPONE tape-ptr-move-stay  endof
+						endcase
+						
 						-1 POSTPONE literal \ return true, keep machine loop working
 					POSTPONE endif
 				repeat
 				
 				-1 ( C: token-addr token-len flag ) \ line read flag
+				>r >r >r \ TODO: push compile time stack effekt to return stack
 			endif
+			
 		 POSTPONE endif
+		 r> r> r> \ fetch compile-time stack effect from return stack
+		 
 	 repeat
 	 ( str-addr str-len ) \ should be 0 0 at this point 
 	 2drop \ cleanup stack
 	 ; immediate
+	 
+	 
+\ see compile-transition
 	 
 \ this is the magic word. but the magic does not happen here 
 \ performs the state transition of the turing machine
@@ -385,7 +435,7 @@ see machine-get-ptr-move
 \ u3: resulting state
 \ f: loop flag
 : transition ( C: -- ; I: u1 u2 -- u3 f )
-	compile-transition \ TODO: use [ compile-transition ] in case it does not work
+	compile-transition  \ TODO: use [ compile-transition ] in case it does not work
 	;
 
 
@@ -408,4 +458,4 @@ see machine-get-ptr-move
 	;
 	
 \ run turing machine
-run-turing-machine 
+\ run-turing-machine 
