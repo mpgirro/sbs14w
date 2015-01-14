@@ -4,18 +4,19 @@
 \ Universal Turing Machine in Forth 
 \ 
 
-10 Constant tape-length
+1000 Constant tape-length 
 8 Constant tape-line-length
-1 Constant loop-flag-continue
-0 Constant loop-flag-stop
+32 Constant machine-line-length
 Create tape-addr tape-length cells allot
 Create tape-line-buffer tape-line-length allot
+Create machine-line-buffer machine-line-length chars allot
 0 Value tape-fd-in
 0 Value tape-fd-out
 0 Value machine-fd-in
-1 Value tape-ptr
+tape-length 2 / Value tape-ptr		
+tape-ptr Value tape-left-rim  
+tape-ptr Value tape-right-rim	
 0 Value start-state
-0 Value machine-line-cursor \ hold current line for the machine file parsing 
 0 Value token-cur-state 
 0 Value token-sym-read
 0 Value token-sym-write
@@ -23,52 +24,9 @@ Create tape-line-buffer tape-line-length allot
 0 Value token-tape-ptr-move
 0 Value is-terminal-state
 
-32 Constant machine-line-length
-Create machine-line-buffer machine-line-length chars allot
-
 
 : open-tape-input ( addr u -- )  r/o open-file throw to tape-fd-in ;
 : open-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
-
-: read-next-machine-line ( -- str-len flag )
-	machine-line-buffer machine-line-length machine-fd-in read-line throw
-	;
-
-
-: open-machine-input ( addr u -- str-len flag )  
-	r/o open-file throw to machine-fd-in \ create the file decriptor for the file
-	read-next-machine-line \ read the first line of machine file (= start state)
-	0= if
-		cr ." ERROR: malformed machine file" cr
-		bye
-	else
-		machine-line-buffer swap s>number? 2drop to start-state \ TODO: ist hier das swap auch ok oder im noch ein copy-paste fehler? ; set the start state 
-	endif
-	;
-
-
-\ read machine-file path argument
-next-arg 2dup 0 0 d<> if 
-	cr ." no path to machine input file provided"
-	bye
-else
-	open-machine-input
-endif
-
-\ read tape-file path argument
-next-arg 2dup 0 0 d<> if 
-	cr ." no path to tape input file provided"
-	bye
-else
-	open-tape-input
-endif
-
- 
-
-\ .s word will dump up to the 20 top most elements
-20 maxdepth-.s !
-
-: debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
 
 \ reads input-file for the tape and initializes tape memory space
 : init-tape ( addr u -- u )
@@ -93,11 +51,67 @@ endif
 	drop \ TODO: counter wird hiermit derzeit verworfen
 	;
 
+\ load next line of file into the line-buffer
+\ str-len: length of read line
+\ flag: true if next line exists, false otherwise
+: read-next-machine-line ( -- str-len flag )
+	machine-line-buffer machine-line-length machine-fd-in read-line throw
+	;
+
+\ opens the file specified by the path string on the stack 
+\ path-addr path-len: string of path to input file
+: open-machine-input ( path-addr path-len -- )  
+	r/o open-file throw to machine-fd-in (  ) \ create the file decriptor for the file
+	read-next-machine-line ( str-len flag ) \ read the first line of machine file (= start state)
+	0= if
+		cr ." ERROR: malformed machine file. start state missing" cr
+		drop (  )
+		bye
+	else
+		machine-line-buffer swap s>number? 2drop to start-state 
+	endif
+    (  )
+	;
+
+
+\ read machine-file path argument
+next-arg 2dup 0 0 d<> if 
+	cr ." no path to machine input file provided"
+	bye
+else
+	open-machine-input
+endif
+
+\ read tape-file path argument
+next-arg 2dup 0 0 d<> if 
+	cr ." no path to tape input file provided"
+	bye
+else
+	init-tape
+endif
+
+\ .s word will dump up to the 20 top most elements
+20 maxdepth-.s !
+
+: debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
+
 \ moves the tape-ptr to the cell containing the field representing the right neighbor
-: tape-ptr-move-right ( -- ) tape-ptr 1 + to tape-ptr ;
+: tape-ptr-move-right ( -- ) 
+	tape-ptr 1 + to tape-ptr 
+	
+	tape-ptr tape-left-rim > if
+		tape-ptr to tape-left-rim
+	endif
+	;
 
 \ moves the tape-ptr to the cell containing the field representing the left neighbor
-: tape-ptr-move-left ( -- ) tape-ptr 1 - to tape-ptr ;
+: tape-ptr-move-left ( -- ) 
+	tape-ptr 1 - to tape-ptr 
+	
+	tape-ptr tape-right-rim < if
+		tape-ptr to tape-right-rim
+	endif
+	;
 
 \ this word indicates that the tape-ptr will not be moved by this transition --> basically a documentary place holder
 : tape-ptr-move-stay ( -- ) ;
@@ -108,40 +122,54 @@ endif
 \ writes top of the stack to the tape at tape-ptr
 : tape-write ( u -- ) tape-addr tape-ptr cells + ! ;
 
-: tape-to-file ( addr u -- )
+\ converts a number to a string
+\ n: number to convert
+\ str-addr str-len: string of the converted number
+: num>string ( n — str-addr str-len )
+	here 16 chars allot \ allocate 16 chars space
+    ( n addr )
+	>r dup >r abs s>d <# #s r> sign #>
+  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) c! 
+    ( str-addr ) count ( str-addr str-len )
+  	;
+  
+
+\ dumps the tape to a file
+\ only writes the part of the tape that was written to
+\ path-addr path-len: takes the path to the output file 
+: tape-to-file ( path-addr path-len -- )
+	
 	open-output
 
 	cr cr ." tape: " cr
 
-	tape-length 0 u+do
-		tape-addr i cells + @
-		dup
-		1 = if
-			cr ." 1"
-			s" 1" tape-fd-out write-line throw
-		endif
-		2 = if
-			cr ." blank"
-			s" blank" tape-fd-out write-line throw
-		endif
+	\ run this loop from the leftmost symbol on the tape to the rightmost symbol
+	tape-right-rim tape-left-rim u+do
+		tape-addr tape-left-rim + i + cells + \ calculate some addr on the tape
+	    ( addr ) @ ( n ) num>string ( str-addr str-len )
+		2dup
+		cr type \ print number-str to command line ( we could also only dup and dot the number before cast to string )
+		tape-fd-out write-line throw \ write number to output file
 	loop
-
+	
 	tape-fd-out close-file throw
 	;
 	
 \ str-addr str-len: str address to split and its length
 \ sep-addr sep-len: separator string that separates the tokens
 \ token-addr token-len: adress of the tokens array and the length of the array
-: str-split ( str-addr str-len sep-addr sep-len -- token-addr token-len )
-  here >r 2swap
+: str-split ( str-addr str-len separator-addr separator-len -- token-addr token-len )
+  here >r 2swap ( sep-addr sep-len str-addr str-len )
   begin
-    2dup 2,             \ save this token ( addr len )
-    2over search        \ find next separator
+    2dup ( sep-addr sep-len str-addr str-len str-addr str-len ) 2, ( sep-addr sep-len str-addr str-len )  \ save this token
+    2over ( sep-addr sep-len str-addr str-len sep-addr sep-len ) search ( sep-addr sep-len str-without-next-word-addr str-len flag )  \ find next separator
   while
-    dup negate  here 2 cells -  +!  \ adjust last token length
-    2over nip /string               \ start next search past separator
+    dup negate ( sep-addr sep-len str-addr str-len -str-len ) here 2 cells -  +! ( sep-addr sep-len str-addr str-len ) \ store length of word
+    2over ( sep-addr sep-len str-addr str-len sep-addr sep-len ) nip ( sep-addr sep-len str-addr str-len sep-len ) /string \ start next search past separator
+    ( sep-addr sep-len str-addr str-len )
   repeat
-  2drop 2drop
+  ( sep-addr sep-len str-without-next-word-addr str-len )
+  2drop 2drop ( counter )
   r>  here over -   ( tokens length )
   dup negate allot           \ reclaim dictionary
   2 cells / 				\ turn byte length into token count
@@ -180,7 +208,11 @@ endif
 	ENDCASE
 	;
 
-\ checks if a new state is defined in the machine file. sets the token variable in this case, returns a flag
+\ checks if a new state is defined in the machine file. 
+\ sets the token variable in this case, returns a flag
+\ token-addr: address of token array
+\ token-len: count of elements in token array
+\ str-addr str-len: label-str for the label of a terminal state. 0 0 in case of a regular state
 : machine-has-next-state ( token-addr token-len flag -- str-addr str-len flag )
 	\ ließt eine Zeile des files in den buffer
 	\ prüft ob zeile einen state beinhaltet oder __EOF__
@@ -188,12 +220,13 @@ endif
 	0 to is-terminal-state \ reset the flag, we don't know if the new one will be one or not
     
     ( str-addr str-len flag )
-    0 = if \ nächte zeile wurde bereits von has-next-edge für den vorherigen state geschrieben
-        ( token-addr token-len ) 2drop \ in diesem fall besteht token-addr und token-len aus 0 0
+    0 = if \ trifft zu wenn nächste zeile bereits von has-next-edge gelesen wurde
+        2drop \ in diesem fall besteht token-addr und token-len aus 0 0
     	read-next-machine-line \ writes the line to the buffer ( string-len flag )
     	
     	0 = if \ __EOF__ reached --> no next state obviously
-			0 \ return false flag
+    		drop
+			0 \ return false flag ( 0 0 )
 		else 
 		    ( str-len )
 			machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens ( token-addr token-len )
@@ -201,48 +234,51 @@ endif
     endif
 		
     ( token-addr token-len )
-	dup 1 = if ( token-addr len ) \ when it is one, there is a next state
+	dup 1 = if ( token-addr token-len ) \ when it is one, there is a next state
 		drop ( token-addr ) 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
-		0 0 \ no label for this state (not a terminal state)
+		0 0 \ no label-str for this state (not a terminal state)
 		-1 \ return flag: has next state = true
 	dup 2 = if \ check if we process a terminal state
-		drop dup ( tok-addr tok-addr ) 2@ s>number? 2drop to token-cur-state \ read the state token
+		dup ( tok-addr tok-addr ) 2@ s>number? 2drop to token-cur-state \ read the state token
 		cell+ cell+ ( tok-addr )
-		2@ s>number? 2drop 
-		( str-addr str-len )			
+		2@ s>number? 2drop ( str-addr str-len )			
 		-1 to is-terminal-state \ mark this state as a terminal state
 		-1 \ has next state: true 
-		( str-addr str-len flag )
+	    ( str-addr str-len flag )
+	0 = if
+		0 0 0 \ return false -> end of file
 	else
-		cr ." malformed sytnax in machine file in state: " machine-line-buffer swap type cr
-		0 \ error in machine file syntax --> terminate
+		cr ." malformed sytnax in machine file for state: " machine-line-buffer swap type cr 
+		0 0 0 \ return false --> error in machine file syntax, terminate
 	endif
-		
-
 	;
 	
-
 : machine-has-next-edge ( -- token-addr token-len flag )
 	\ ließt nächste zeile des files in den buffer
 	\ prüft ob buffer ein new-line beinhaltet (= ende der edges des states)
-	\ retuniert true (= -1) wenn noch eine edge-line, false (=0) wenn state zu ende
-	read-next-machine-line \ writes the line to the buffer
-    ( str-len flag ) 
-	0 = if \ __EOF__ --> no next edge obviously 
-		0 \ return false flag ( buffer-len f )
+	\ retourniert true (= -1) wenn noch eine edge-line, false (=0) wenn state zu ende
+
+	read-next-machine-line ( str-len flag ) \ writes the line to the buffer
+ 
+	0 = if \ __EOF__ --> no next edge obviously
+		drop 
+		0 0 0 \ return false
+	    ( 0 0 flag )
 	else
-		machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens ( str len sep len -- token-addr token-len )
-		dup 4 = if
-			drop \ we dont need token-len any more
-			dup machine-get-sym-read
-			dup cell+ cell+ machine-get-sym-write
-			dup cell+ cell+ machine-get-next-state
-			cell+ cell+ machine-get-ptr-move
+        ( str-len ) machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens 
+        ( token-addr token-len )
+		dup 4 = if \ true when there is a new edge
+			drop \ we dont need token-len any more ( tok-addr )
+			dup machine-get-sym-read ( tok-addr )
+			cell+ cell+ dup machine-get-sym-write ( tok-addr )
+			cell+ cell+ dup machine-get-next-state ( tok-addr )
+			cell+ cell+ machine-get-ptr-move ( )
 			0 0 \ no return string needed --> already parsed and values set
 			-1 \ return true flag, next edge found and tokens set
+            ( 0 0 -1 )
 		else \ we did not detect a line containing 4 tokens. this means we have reached another state definition
-		    ( token-addr token-len )
 			0 \ no next edge, return false
+            ( token-addr token-len 0 )
 		endif	
 	endif
 ;
@@ -254,7 +290,7 @@ endif
 \ u2: current symbol on the tape position
 \ u3: resulting state
 \ f: loop flag
-: transition ( u1 u2 -- u3 f )
+: transition-increment-example ( u1 u2 -- u3 f )
 	 over 0 = if \ current state
 	 	dup 1 = if \ symbol read on tape
 	 	    ( u1 u2 )
@@ -262,53 +298,28 @@ endif
 	 		1 tape-write \ => write 1 to tape
 	 		0 \ next-state to go to
 	 		tape-ptr-move-right
-	 		loop-flag-continue \ = 1
+	 		-1 \ = 1
 	 	endif
 	 	dup 2 = if
 	 		2drop
 	 		1 tape-write
 			1 \ next-state to go to
 	 		tape-ptr-move-stay
-	 		loop-flag-continue \ = 1
+	 		-1 \ return true, keep machine loop working
 	 	endif
 	 endif
 	 over 1 = if \ => terminal state
 	 	2drop
-	 	loop-flag-stop \ = 0
+	 	0 \ return false, stop machine loop
 	 endif
 	;
 
-\ : trans-test
-\ 	 [ [BEGIN] machine-has-next-state [WHILE] ]
-\ 	 	over [ token-cur-state ] literal = if
-\ 	 		[ is-terminal-state [IF] ] 
-\ 		 		2drop
-\ 		 		loop-flag-stop \ = 0
-\ 	 		[ [ELSE] ]
-\ 	 			[ [BEGIN] machine-has-next-edge [WHILE] ]
-\ 					dup [ machine-get-read-symbol ] literal = if
-\ 						2drop 
-\ 						[ machine-get-write-symbol ] literal tape-write
-\ 						[ machine-get-next-state ] literal \ next-state to go to
-\ 						[ machine-get-ptr-move ] \ left, right or stay
-\ 						loop-flag-continue \ = 1
-\ 						endif
-\ 				[ [REPEAT] ]
-\ 			[ [ENDIF] ]
-\ 		 	endif
-\ 	 [ [REPEAT] ]
-\ 	 ; 
-
-
-
-\ #### this is all very testy here! #####
-
-: compile-transition ( C: addr len flag -- ) \ TODO: ist der stack effect sicher gestellt?!
+: compile-transition ( C: -- ; I: ??? )
 	0 0 0 ( C: token-addr token-len flag )
 	  begin 
-	    ( addr len flag ) \ 
+	    ( token-addr token-len flag ) 
 	 	machine-has-next-state
-	    ( str-addr str-len flag ) \ TODO: ist hier sicher gestellt, das der stack auch so ausschaut? oder werden hier auch noch irgendwelche addressen geliefert?
+	    ( str-addr str-len flag ) 
 	  while
 	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE = POSTPONE if
 	 		is-terminal-state if
@@ -316,11 +327,13 @@ endif
 	 		    swap
 	 		    ( u1 u2 str-len str-addr )
 	 		    POSTPONE literal POSTPONE literal 
-	 		    ( u1 u2 str-addr str-len ) 
-	 		    POSTPONE cr POSTPONE type POSTPONE cr \ print the state label
-		 		POSTPONE 2drop \ drops u1 & u2	 		 
-		 		loop-flag-stop POSTPONE literal
-		 		0 0 0 ( C: token-addr token-len flag )
+	 		    ( I: u1 u2 str-addr str-len ) 
+	 		    POSTPONE cr POSTPONE type POSTPONE cr \ print the term-state label
+	 		    ( I: u1 u2 ) 
+		 		POSTPONE 2drop	 		 
+		 		0 POSTPONE literal \ return false, stop machine loop
+		 	    (  )
+		 		0 0 0 ( token-addr token-len flag)
 	 		else
 	 		    ( C: str-addr str-len )
 	 		    2drop \ those should be 0 0 --> no label for non-terminal states
@@ -336,39 +349,46 @@ endif
 						machine-get-write-symbol POSTPONE literal POSTPONE tape-write 
 						machine-get-next-state POSTPONE literal \ next-state to go to
 						machine-get-ptr-move \ TODO: BRAUCHEN WIR HIER EIN POSTPONE?! --> das word soll sofort aufgerufen werden, aber den code des tape-ptr-move words erst in der transition ausgeführt, also schon, oder? oder müssen die calls im machine-get-ptr-move postponed werden? (was sie derzeit sind) \ left, right or stay
-						loop-flag-continue POSTPONE literal \ = 1
-						POSTPONE endif
+						-1 POSTPONE literal \ return true, keep machine loop working
+					POSTPONE endif
 				repeat
-				-1 ( C: token-addr token-len flag )
+				
+				-1 ( C: token-addr token-len flag ) \ line read flag
 			endif
 		 POSTPONE endif
-		 
 	 repeat
+	 ( str-addr str-len ) \ should be 0 0 at this point 
+	 2drop \ cleanup stack
 	 ; immediate
 	 
-: transition-v2 
-	compile-transition \ use [ compile-transition ]  in case it does not work
+\ this is the magic word. but the magic does not happen here 
+\ performs the state transition of the turing machine
+\ u1: current state
+\ u2: current symbol read at tape position
+\ u3: resulting state
+\ f: loop flag
+: transition ( C: -- ; I: u1 u2 -- u3 f )
+	compile-transition \ TODO: use [ compile-transition ] in case it does not work
 	;
 
-\ ###########
 
+: run-turing-machine ( -- )
 
-: ufm ( program-path-str input-path-str -- [output-stack] )
-
-	s" input1.tape" init-tape
-
-	start-state \ => init state q0
-	
-	\ read states and edges, stuff
-	
-	
-	
-	loop-flag-continue begin
-		0> while
-			tape-read \ => read tape-sym at curr-state position
-			transition \ => do the transition dance
-		repeat
+	start-state
+	1 begin
+	    ( cur-state flag )
+		0> 
+	while
+	    ( cur-state )
+		tape-read \ => read tape-sym at curr-state position
+	    ( cur-state cur-sym )
+		transition \ => do the transition dance
+	    ( next-state flag )
+	repeat
 
 	s" result.tape" tape-to-file
 	\ tape-to-stack
 	;
+	
+\ run turing machine
+run-turing-machine 
