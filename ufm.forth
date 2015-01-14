@@ -29,27 +29,42 @@ tape-ptr Value tape-right-rim
 : open-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
 
 \ reads input-file for the tape and initializes tape memory space
-: init-tape ( addr u -- u )
-	open-tape-input
+: init-tape ( addr u --  )
+	open-tape-input ( )
 	
-	tape-length 0 u+do
-		2 tape-addr i cells + !
-	loop
-
 	1 1 \ counter
 	begin
-		tape-line-buffer tape-line-length tape-fd-in read-line ( string-len flag errcode )  throw
+		tape-line-buffer tape-line-length tape-fd-in read-line ( counter counter buff-len flag errcode ) throw
 	while
-	    ( buff-len )
-	    tape-line-buffer ( buff-len buff-addr ) swap s>number? ( num-read 0 -1 ) 2drop
-	    ( counter counter num-read ) tape-addr rot cells + ! \ consumes one counter, keeps the other
-		1 + dup
+	    ( c c  buff-len )
+	    tape-line-buffer 
+	    ( c c buff-len buff-addr ) 
+	    swap 2dup 
+	    ( c c buff-addr buff-len buff-addr buff-len ) 
+	    s>number? 
+	    ( c c buff-addr buff-len num-read 0 flag )  \ on error: 0 0 0 
+	    0= if \ conversion failed
+	        ( c c buff-addr buff-len 0 0 )
+	        2drop
+	    	cr ." malformed input tape. invalid symbol: " type cr
+	        ( c c )
+	    	2drop 
+	    	bye
+	    else \ drop debug information
+	        ( c c buff-addr buff-len num-read 0 ) 
+	        drop \ useless 0
+	        rot rot
+	        ( c c num-read buff-addr buff-len )
+	    	2drop \ drop debug string
+	    endif
+	    
+	    ( counter counter num-read ) tape-addr tape-ptr cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
+		1 + dup ( counter counter )
 	repeat
-	drop
-	2 swap tape-addr swap cells + !
-	1 -
-	drop \ TODO: counter wird hiermit derzeit verworfen
-	;
+    ( counter counter buff-len )
+	2drop drop \ drop length of line-buffer and counter
+	
+;
 
 \ load next line of file into the line-buffer
 \ str-len: length of read line
