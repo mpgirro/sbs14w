@@ -75,7 +75,7 @@ tape-ptr Value tape-right-rim
 
 \ opens the file specified by the path string on the stack 
 \ path-addr path-len: string of path to input file
-: open-machine-input ( path-addr path-len -- )  
+: open-machine-input ( path-addr path-len -- ) 
 	r/o open-file throw to machine-fd-in (  ) \ create the file decriptor for the file
 	read-next-machine-line ( str-len flag ) \ read the first line of machine file (= start state)
 	0= if
@@ -90,20 +90,20 @@ tape-ptr Value tape-right-rim
 
 
 \ read machine-file path argument
-next-arg 2dup 0 0 d<> if 
+next-arg 2dup 0 0 d<> [IF]
+	open-machine-input
+[ELSE]
 	cr ." no path to machine input file provided"
 	bye
-else
-	open-machine-input
-endif
+[ENDIF]
 
 \ read tape-file path argument
-next-arg 2dup 0 0 d<> if 
+next-arg 2dup 0 0 d<> [IF]
+	init-tape
+[ELSE]
 	cr ." no path to tape input file provided"
 	bye
-else
-	init-tape
-endif
+[ENDIF]
 
 \ .s word will dump up to the 20 top most elements
 20 maxdepth-.s !
@@ -222,6 +222,8 @@ endif
 		 1 OF POSTPONE tape-ptr-move-stay  ENDOF
 	ENDCASE
 	;
+
+see machine-get-ptr-move
 
 \ checks if a new state is defined in the machine file. 
 \ sets the token variable in this case, returns a flag
