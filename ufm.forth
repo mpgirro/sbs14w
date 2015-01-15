@@ -1,23 +1,27 @@
 #! /usr/bin/env gforth
 
-\ 
-\ Universal Turing Machine in Forth 
-\ 
+\
+\ Universal Turing Machine in Forth
+\
 
-1000 Constant tape-length 
+1000 Constant tape-length
 8 Constant tape-line-length
-32 Constant machine-line-length
+32 Constant machine-line-length \ how long a line in the machien file may be at most
+20 Constant termlabel-table-space  \ how many termlabels can be saved
+32 Constant termlabel-length
+0 Value termlabel-table-cursor
 Create tape-addr tape-length cells allot
 Create tape-line-buffer tape-line-length allot
 Create machine-line-buffer machine-line-length chars allot
+Create termlabel-tmp termlabel-length chars allot
 0 Value tape-fd-in
 0 Value tape-fd-out
 0 Value machine-fd-in
-tape-length 2 / Value tape-ptr		
-tape-ptr Value tape-left-rim  
-tape-ptr Value tape-right-rim	
+tape-length 2 / Value tape-ptr
+tape-ptr Value tape-left-rim
+tape-ptr Value tape-right-rim
 0 Value start-state
-0 Value token-cur-state 
+0 Value token-cur-state
 0 Value token-sym-read
 0 Value token-sym-write
 0 Value token-next-state
@@ -30,16 +34,16 @@ tape-ptr Value tape-right-rim
 : open-tape-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
 
 \ moves the tape-ptr to the cell containing the field representing the left neighbor
-: tape-ptr-move-left ( -- ) 
-	tape-ptr 1 - to tape-ptr 
+: tape-ptr-move-left ( -- )
+	tape-ptr 1 - to tape-ptr
 	tape-ptr tape-left-rim < if
 		tape-ptr to tape-left-rim
 	endif
 	;
-	
+
 \ moves the tape-ptr to the cell containing the field representing the right neighbor
-: tape-ptr-move-right ( -- ) 
-	tape-ptr 1 + to tape-ptr 
+: tape-ptr-move-right ( -- )
+	tape-ptr 1 + to tape-ptr
 	tape-ptr tape-right-rim > if
 		tape-ptr to tape-right-rim
 	endif
@@ -56,57 +60,57 @@ tape-ptr Value tape-right-rim
 
 \ sets the tape-ptr to the inital position
 \ this operation is needed if we want to run the turing machine multiple times on the same tape
-: reset-tape-ptr ( -- ) 
-	tape-length 2 / to tape-ptr 
+: reset-tape-ptr ( -- )
+	tape-length 2 / to tape-ptr
 	tape-ptr-move-right
 	;
 
 \ reads input-file for the tape and initializes tape memory space
 : init-tape ( addr u --  )
 	open-tape-input ( )
-	
+
 	\ init whole tape-memory with 0's
 	tape-length 0
 	u+do
 		0 tape-addr i cells + !
 	loop
-	
+
 	\ write the tape input file to the tape-memory
 	1 1 \ counter
 	begin
 		tape-line-buffer tape-line-length tape-fd-in read-line ( counter counter buff-len flag errcode ) throw
 	while
-	    ( c c  buff-len )
-	    tape-line-buffer 
-	    ( c c buff-len buff-addr ) 
-	    swap 2dup 
-	    ( c c buff-addr buff-len buff-addr buff-len ) 
-	    s>number? 
-	    ( c c buff-addr buff-len num-read 0 flag )  \ on error: 0 0 0 
-	    0= if \ conversion failed
-	        ( c c buff-addr buff-len 0 0 )
-	        2drop
-	    	." [ERROR] malformed input tape. invalid symbol: " type cr
-	        ( c c )
-	    	2drop 
-	    	bye
-	    else \ drop debug information
-	        ( c c buff-addr buff-len num-read 0 ) 
-	        drop \ useless 0
-	        rot rot
-	        ( c c num-read buff-addr buff-len )
-	    	2drop \ drop debug string
-	    endif
-	    
-	    ( counter counter num-read ) tape-addr tape-ptr cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
+		( c c  buff-len )
+		tape-line-buffer
+		( c c buff-len buff-addr )
+		swap 2dup
+		( c c buff-addr buff-len buff-addr buff-len )
+		s>number?
+		( c c buff-addr buff-len num-read 0 flag )  \ on error: 0 0 0
+		0= if \ conversion failed
+			( c c buff-addr buff-len 0 0 )
+			2drop
+			." [ERROR] malformed input tape. invalid symbol: " type cr
+			( c c )
+			2drop
+			bye
+		else \ drop debug information
+			( c c buff-addr buff-len num-read 0 )
+			drop \ useless 0
+			rot rot
+			( c c num-read buff-addr buff-len )
+			2drop \ drop debug string
+		endif
+
+		( counter counter num-read ) tape-addr tape-ptr cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
 		1 + dup ( counter counter )
 	repeat
-    ( counter counter buff-len )
+	( counter counter buff-len )
 	2drop drop \ drop length of line-buffer and counter
-	
+
 	\ tape-ptr-move-right \ TODO we need this to move the tape ptr to the first cell just written to, but why is there this offset?
 	reset-tape-ptr
-;
+	;
 
 \ load next line of file into the line-buffer
 \ str-len: length of read line
@@ -115,9 +119,9 @@ tape-ptr Value tape-right-rim
 	machine-line-buffer machine-line-length machine-fd-in read-line throw
 	;
 
-\ opens the file specified by the path string on the stack 
+\ opens the file specified by the path string on the stack
 \ path-addr path-len: string of path to input file
-: open-machine-input ( path-addr path-len -- ) 
+: open-machine-input ( path-addr path-len -- )
 	r/o open-file throw to machine-fd-in (  ) \ create the file decriptor for the file
 	read-next-machine-line ( str-len flag ) \ read the first line of machine file (= start state)
 	0= if
@@ -125,7 +129,7 @@ tape-ptr Value tape-right-rim
 		drop (  )
 		bye
 	else
-		machine-line-buffer swap s>number? 2drop to start-state 
+		machine-line-buffer swap s>number? 2drop to start-state
 	endif
     (  )
 	;
@@ -163,6 +167,14 @@ next-arg 2dup 0 0 d<> [IF]
 : debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
 
 
+\ convert a cell pair string to a counted string 
+: s>cstr 
+	over over >r >r 
+	char+ swap chars 
+	cmove 
+	r> r> 
+	c! 
+	;
 
 \ converts a number to a string
 \ n: number to convert
@@ -171,22 +183,38 @@ next-arg 2dup 0 0 d<> [IF]
 	here 16 chars allot \ allocate 16 chars space
     ( n addr )
 	>r dup >r abs s>d <# #s r> sign #>
-  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) c! 
+  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) c!
     ( str-addr ) count ( str-addr str-len )
   	;
-  
+
+\ lets us create 2D arrays for long term string storage
+: 2d-array
+	create               ( n1 n2 )        \ create an entry
+		dup              ( n1 n2 n2 )     \ = rows columns columns
+		,                ( n1 n2 )        \ compile the number of cells in a row
+ 		* chars          ( n1*n2 )        \ calculate size
+		allot            ( -- )           \ allocate the number of cells
+	does>                ( n1 n2 a )      \ what to do at runtime
+		rot over @       ( n2 a n1 n3 )   \ get number of cells in a row
+		* rot + 1+       ( a n1*n3+n2+1 ) \ calculate offset
+		chars +          ( a+n1*n3+n2+1 ) \ calculate address
+	;
+	
+\ define a lookup table for the terminal state labels (long term storage)
+termlabel-table-space termlabel-length 2d-array termlabel-table 
+
 
 \ dumps the tape to a file
 \ only writes the part of the tape that was written to
-\ path-addr path-len: takes the path to the output file 
+\ path-addr path-len: takes the path to the output file
 : dump-tape ( path-addr path-len -- )
-	
+
 	open-tape-output
 
 	cr ." result tape: " cr
 
 	\ run this loop from the leftmost symbol on the tape to the rightmost symbol
-	tape-right-rim tape-left-rim 
+	tape-right-rim tape-left-rim
 	\ cr ." tape-right-rim tape-left-rim" cr .s cr \ DEBUG
 	u+do
 		tape-addr tape-left-rim cells + \ calculate left part of the written tape
@@ -197,12 +225,12 @@ next-arg 2dup 0 0 d<> [IF]
 		cr ." [ " i tape-left-rim - . ." ] : " type \ print number-str to command line ( we could also only dup and dot the number before cast to string )
 		tape-fd-out write-line throw \ write number to output file
 	loop
-	
+
 	cr \ this is only for a pretty output
-	
+
 	tape-fd-out close-file throw
 	;
-	
+
 \ str-addr str-len: str address to split and its length
 \ sep-addr sep-len: separator string that separates the tokens
 \ token-addr token-len: adress of the tokens array and the length of the array
@@ -221,7 +249,7 @@ next-arg 2dup 0 0 d<> [IF]
   	r>  here over -   ( tokens length )
   	dup negate allot           \ reclaim dictionary
   	2 cells / 				\ turn byte length into token count
-	;                
+	;
 
 \ fetches the next token from the current edge line processed
 \ addr: tokens addr
@@ -229,11 +257,11 @@ next-arg 2dup 0 0 d<> [IF]
 : get-next-edge-token ( addr -- n )
 	2@ \ fetch next token-str at addr
     ( str-addr str-len )
-	s>number? 
+	s>number?
     ( num flag errcode )
 	2drop
 	;
-	
+
 : machine-get-sym-read ( token-addr -- ) get-next-edge-token to token-sym-read ;
 
 : machine-get-sym-write ( token-addr -- ) get-next-edge-token to token-sym-write ;
@@ -244,7 +272,7 @@ next-arg 2dup 0 0 d<> [IF]
 
 \ see machine-get-ptr-move
 
-\ checks if a new state is defined in the machine file. 
+\ checks if a new state is defined in the machine file.
 \ sets the token variable in this case, returns a flag
 \ token-addr: address of token array
 \ token-len: count of elements in token array
@@ -254,43 +282,62 @@ next-arg 2dup 0 0 d<> [IF]
 	\ prüft ob zeile einen state beinhaltet oder __EOF__
 	\ returns boolean flag ( -1  = true, 0 = false )
 	0 to is-terminal-state \ reset the flag, we don't know if the new one will be one or not
-    
+
     ( str-addr str-len flag )
     0 = if \ =0 if line was already read by has-next-edge
         2drop \ drop token-addr and token-len --> they are 0 0 anyway
-    	read-next-machine-line \ writes the line to the buffer 
+    	read-next-machine-line \ writes the line to the buffer
         ( string-len flag )
     	0 = if \ __EOF__ reached --> no next state obviously
     		drop
 			0 \ return false flag ( 0 0 )
-		else 
+		else
 		    ( str-len )
 			machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens ( token-addr token-len )
     	endif
     endif
-    
+
     case \ check which kind of line we process
     	1 of \ = regular state (only one token)
     		\ when it is one, there is a next state
-			 ( token-addr ) 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
+		    ( token-addr ) 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
 			0 0 \ no label-str for this state (not a terminal state)
 			-1 \ return flag: has next state = true
 		endof
 		2 of \ = terminal state (two tokens in line)
-			dup ( token-addr token-addr ) 
+			dup ( token-addr token-addr )
 			2@ s>number? 2drop to token-cur-state \ read the state token
 			cell+ cell+ ( token-addr )
-			\ read the terminal state label (= what is printed when machine terminates) 
-			2@ \ s>number? 2drop \ SO EIN BLÖDSINN! TODO
-			
-			\ DEBUG start
-			2dup 2dup
-			." [DEBUG] parsing terminal state with label: " type ."  --> label address is: " swap . . cr
-			\ DEBUG end
-			
-		    ( str-addr str-len )			
+			2@ \ read the terminal state label (= what is printed when machine terminates)
+		    
+		    \ TODO the str here produced is heap memory dictionary space. it "does not last forever. If you wait too long it will be overwritten. It depends on your system how long the string will last." --> great...
+		    
+		    ( str-addr str-len )
+		    ." [DEBUG] test 1: " .s cr \ DEBUG
+		    ." [DEBUG] " 2dup type cr \ DEBUG
+		    termlabel-tmp s>cstr  \ make cell pair string to counted string (= table storage format)
+		    termlabel-table-cursor 0 termlabel-table \ fetch the next free table addr
+		    ." [DEBUG] test 2: " .s cr \ DEBUG
+		    ( table-addr )
+		    termlabel-tmp swap
+		    ( tmp-addr table-addr )
+		    termlabel-tmp count nip
+		    ( tmp-addr table-addr cstr-len )
+		    ." [DEBUG] test 3: " .s cr \ DEBUG
+		    cmove \ copy counted string to table row
+		    (  )
+		 	termlabel-table-cursor 0 termlabel-table \ TODO kann man mit return stack schöner machen
+		    ( table-str-addr )
+		    termlabel-table-cursor 0 termlabel-table 
+		    ." [DEBUG] test 4: " .s cr \ DEBUG
+		    count nip \ TODO kann man mit return stack schöner machen (der wert ist ja str-len vom anfang...)
+		    ( table-str-addr table-str-len )
+		    ." [DEBUG] test 5: " .s cr \ DEBUG
+		    
+		    termlabel-table-cursor 1+ to termlabel-table-cursor \ increment table cursor
+		    
 			-1 to is-terminal-state \ mark this state as a terminal state
-			-1 \ has next state: true 
+			-1 \ has next state: true
 		    ( str-addr str-len flag )
 		endof
 		0 of \ = __EOF__ (no token in line)
@@ -300,26 +347,26 @@ next-arg 2dup 0 0 d<> [IF]
 	    \ ELSE: undefined amount of tokens in line --> nothing that we expect
 	    ( n )
 	    >r \ write n to return stack (we need it at the end for the endcase)
-		." [ERROR] malformed sytnax in machine file for state: " machine-line-buffer swap type cr 
+		." [ERROR] malformed sytnax in machine file for state: " machine-line-buffer swap type cr
 		0 0 0 \ return false --> error in machine file syntax, terminate
 		r> \ get this tedious n back...
 	    ( str-addr str-len flag n )
     endcase
 	;
-	
+
 : machine-has-next-edge ( -- token-addr token-len flag )
 	\ ließt nächste zeile des files in den buffer
 	\ prüft ob buffer ein new-line beinhaltet (= ende der edges des states)
 	\ retourniert true (= -1) wenn noch eine edge-line, false (=0) wenn state zu ende
 
 	read-next-machine-line ( str-len flag ) \ writes the line to the buffer
- 	
+
 	0 = if \ __EOF__ --> no next edge obviously
-		drop 
+		drop
 		0 0 0 \ return false
 	    ( 0 0 flag )
 	else
-        ( str-len ) machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens 
+        ( str-len ) machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens
         ( token-addr token-len )
 		dup 4 = if \ true when there is a new edge
 			drop \ we dont need token-len any more ( token-addr )
@@ -333,7 +380,7 @@ next-arg 2dup 0 0 d<> [IF]
 		else \ we did not detect a line containing 4 tokens. this means we have reached another state definition
 			0 \ no next edge, return false
             ( token-addr token-len 0 )
-		endif	
+		endif
 	endif
 	;
 
@@ -346,17 +393,17 @@ next-arg 2dup 0 0 d<> [IF]
 \ f: loop flag
 : transition-increment-example ( u1 u2 -- u3 f )
 	 over 1 = \ => terminal state
-	 if 
+	 if
 	 	s" terminated in state: " type s" finished" type cr
 	 	2drop
 	 	0 \ return false, stop machine loop
 	 	exit
 	 endif
-	 
+
 	 over 0 = \ current state
-	 if 
+	 if
 	 	dup 1 = \ symbol read on tape
-	 	if 
+	 	if
 	 	    ( u1 u2 )
 	 		2drop \ clean up stack - we set new cur-state and type-sym now
 	 		1 tape-write \ => write 1 to tape
@@ -365,7 +412,7 @@ next-arg 2dup 0 0 d<> [IF]
 	 		-1 \ = 1
 	 		exit
 	 	endif
-	 	dup 2 = 
+	 	dup 2 =
 	 	if
 	 		2drop
 	 		1 tape-write
@@ -379,31 +426,31 @@ next-arg 2dup 0 0 d<> [IF]
 
 : compile-transition ( C: -- ; I: undefined )
 	0 0 0 ( C: token-addr token-len flag )
-	  begin 
-	    ( token-addr token-len flag ) 
+	  begin
+	    ( token-addr token-len flag )
 	 	machine-has-next-state
-	    ( str-addr str-len flag ) 
+	    ( str-addr str-len flag )
 	  while
 	    ( str-addr str-len )
 	  	>r >r \ send str to return-stack
-	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE = POSTPONE if 
+	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE = POSTPONE if
 	 		is-terminal-state if
 	 			s" terminated in state: "
 	 			swap
-	 			POSTPONE literal POSTPONE literal 
+	 			POSTPONE literal POSTPONE literal
 	 			POSTPONE type
-	 		
+
 	 			r> r> \ fetch label-str for this terminal state from return-stack
 	 		    ( C: str-addr str-len )
-	 			." [DEBUG] compile time stack of terminal state: " .s cr \ DEBUG
+	 			\ ." [DEBUG] compile time stack of terminal state: " .s cr \ DEBUG
 	 		    ( u1 u2 str-addr str-len ) \ dieser stack-effect beschreibt compile und interprete state gemixed. zur interprete time steht hier nur 1 1 auf dem stack!
 	 		    swap
 	 		    ( u1 u2 str-len str-addr )
-	 		    POSTPONE literal POSTPONE literal 
+	 		    POSTPONE literal POSTPONE literal
 	 		    ( I: u1 u2 str-addr str-len )
 	 		    POSTPONE type POSTPONE cr \ print the term-state label
-	 		    ( I: u1 u2 ) 
-		 		POSTPONE 2drop	 	
+	 		    ( I: u1 u2 )
+		 		POSTPONE 2drop
 		 		0 POSTPONE literal \ return false, stop machine loop
 		 		POSTPONE exit \ TODO how silly we are: we have to exit the transition word here, or else one of the next overs may accept the stack effect defined here
 		 	    (  )
@@ -413,7 +460,7 @@ next-arg 2dup 0 0 d<> [IF]
 	 			r> r> \ fetch str from return-stack
 	 		    ( C: str-addr str-len )
 	 		    2drop \ those are 0 0 at this point --> no labels for non-terminal states
-	 			begin 
+	 			begin
 	 				machine-has-next-edge
 	 			    ( C: token-addr token-len flag )
 	 			while
@@ -421,51 +468,50 @@ next-arg 2dup 0 0 d<> [IF]
 	 			    2drop \ edge token line is read an token-vals are set, drop the token array adress
 					POSTPONE dup token-sym-read POSTPONE literal POSTPONE = POSTPONE if
 					    ( I: u1 u2 )
-						POSTPONE 2drop \ drop u1 u2  
-						token-sym-write POSTPONE literal POSTPONE tape-write 
+						POSTPONE 2drop \ drop u1 u2
+						token-sym-write POSTPONE literal POSTPONE tape-write
 						token-next-state POSTPONE literal \ next-state to go to
-						token-ptr-move 
+						token-ptr-move
 						( C: n )
 						case
 							-1 of POSTPONE tape-ptr-move-left  endof
 		 					 0 of POSTPONE tape-ptr-move-stay  endof
 		 					 1 of POSTPONE tape-ptr-move-right endof
 						endcase
-						
+
 						-1 POSTPONE literal \ return true, keep machine loop working
 						POSTPONE exit \ TODO how silly we are: we have to exit the transition word here, or else one of the next overs may accept the stack effect defined here
 					POSTPONE endif
 				repeat
-				
+
 				-1 ( C: token-addr token-len flag ) \ line read flag
 				>r >r >r \ push compile-time stack effect to return-stack
 			endif
 		 POSTPONE endif
-		 r> r> r> \ fetch compile-time stack effect from return-stack 
+		 r> r> r> \ fetch compile-time stack effect from return-stack
 	 repeat
-	 ( str-addr str-len ) \ = 0 0 at this point 
+	 ( str-addr str-len ) \ = 0 0 at this point
 	 2drop \ cleanup stack
 	 ; compile-only immediate \ make it compile-only for the interpretation semantics is undefined (and useless) anyway
-	 
-\ this is the magic word. but the magic does not happen here 
+
+\ this is the magic word. but the magic does not happen here
 \ performs the state transition of the turing machine
 \ u1: current state
 \ u2: current symbol read at tape position
 \ u3: resulting state
 \ f: loop flag
 : transition ( C: -- ; I: u1 u2 -- u3 f )
-	compile-transition  \ TODO: use [ compile-transition ] in case it does not work
+	compile-transition
 	;
-
 
 : run-turing-machine ( -- )
 
 	\ reset-tape-ptr \ TODO not necessary now, is it?
-	
+
 	start-state
-	1 \ initial loop flag 
+	1 \ initial loop flag
 	begin
-	    ( cur-state flag ) 
+	    ( cur-state flag )
 	while
 	    ( cur-state )
 		tape-read \ => read tape-sym at curr-state position
@@ -477,6 +523,6 @@ next-arg 2dup 0 0 d<> [IF]
 
 	s" result.tape" dump-tape
 	;
-	
+
 \ run turing machine
-run-turing-machine 
+run-turing-machine
