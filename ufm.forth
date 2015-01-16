@@ -1,14 +1,14 @@
 #! /usr/bin/env gforth
 
-\ 
+\
 \ Universal Turing Machine in Forth
-\ 
+\
 
 1000 Constant tape-length
 8 Constant tape-line-length			\ maximum line length in tape file
 32 Constant machine-line-length 	\ maximum line length in machine file
 20 Constant termlabel-table-space 	\ size (= # rows) auf termlabel table
-32 Constant termlabel-length		\ maximum line length of termlabel table 
+32 Constant termlabel-length		\ maximum line length of termlabel table
 0 Value termlabel-table-cursor		\ next free row in termlable table
 Create tape-addr tape-length cells allot
 Create tape-line-buffer tape-line-length allot
@@ -102,7 +102,7 @@ tape-ptr Value tape-right-rim
 			2drop \ drop error msg string
 		endif
 
-	    ( counter counter num-read ) tape-addr tape-ptr 
+	    ( counter counter num-read ) tape-addr tape-ptr
 	    cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
 		1 + dup ( counter counter )
 	repeat
@@ -167,13 +167,13 @@ next-arg 2dup 0 0 d<> [IF]
 : debug-dump-stack ( -- u1 u2 u3 ... ) cr .s cr ;
 
 
-\ convert a cell pair string to a counted string 
+\ convert a cell pair string to a counted string
 : s>cstr ( str-addr str-len cstr-addr -- )
-	over over >r >r 
-	char+ swap chars 
-	cmove 
-	r> r> 
-	c! 
+	over over >r >r
+	char+ swap chars
+	cmove
+	r> r>
+	c!
 	;
 
 \ converts a number to a string
@@ -183,8 +183,8 @@ next-arg 2dup 0 0 d<> [IF]
 	here 16 chars allot \ allocate 16 chars space
     ( n addr )
 	>r dup >r abs s>d <# #s r> sign #>
-  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) 
-  	c! ( str-addr ) 
+  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr )
+  	c! ( str-addr )
   	count ( str-addr str-len )
   	;
 
@@ -200,9 +200,9 @@ next-arg 2dup 0 0 d<> [IF]
 		* rot + 1+  ( a n1*n3+n2+1 ) \ calculate offset
 		chars +  ( a+n1*n3+n2+1 ) \ calculate address
 	;
-	
+
 \ define a lookup table for the terminal state labels (long term storage)
-termlabel-table-space termlabel-length 2d-array termlabel-table 
+termlabel-table-space termlabel-length 2d-array termlabel-table
 
 
 \ dumps the tape to a file
@@ -240,7 +240,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
     	2dup 2, 	 ( sep-addr sep-len str-addr str-len )  					   \ save this token
     	2over search ( sep-addr sep-len str-without-next-word-addr str-len flag )  \ find next separator
 	while
-    	dup negate 			( sep-addr sep-len str-addr str-len -str-len ) 
+    	dup negate 			( sep-addr sep-len str-addr str-len -str-len )
 		here 2 cells -  +!  ( sep-addr sep-len str-addr str-len )  \ store length of word
     	2over nip /string   ( sep-addr sep-len str-addr str-len )  \ start next search past separator
   	repeat
@@ -275,7 +275,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 \ token-addr: address of token array
 \ token-len: count of elements in token array
 \ str-addr str-len: label-str for the label of a terminal state. 0 0 in case of a regular state
-\ returns boolean flag ( -1  = true, 0 = false ) 
+\ returns boolean flag ( -1  = true, 0 = false )
 : machine-has-next-state ( token-addr token-len flag -- str-addr str-len flag )
 	0 to is-terminal-state \ reset the flag, we don't know if the new one will be one or not
 
@@ -294,7 +294,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
     case \ check which kind of line we process
     	1 of \ = regular state (only one token) -  when it is one, there is a next state
-		    ( token-addr ) 
+		    ( token-addr )
 			2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
 			0 0 	\ no label-str for this state (not a terminal state)
 			-1 		\ return flag: has next state = true
@@ -305,12 +305,12 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 			cell+ cell+ ( token-addr )
 			2@ 			\ read the terminal state label (= what is printed when machine terminates)
 		    ( str-addr str-len )
-		    
+
 		    \ the string here is in heap memory dictionary space.
-		    \ it "does not last forever. If you wait too long it will be overwritten." 
+		    \ it "does not last forever. If you wait too long it will be overwritten."
 		    \ "It depends on your system how long the string will last."
 		    \  --> great. we'll have to copy it to our label table then...
-		    
+
 		    termlabel-tmp
 		    s>cstr  \ make cell pair string to counted string (= table storage format)
 		    0 termlabel-table-cursor termlabel-table \ fetch the next free table addr
@@ -324,14 +324,14 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    (  )
 		 	0 termlabel-table-cursor termlabel-table
 		    ( table-str-addr )
-		    0 termlabel-table-cursor termlabel-table 
+		    0 termlabel-table-cursor termlabel-table
 		    count nip
 		    ( table-str-addr table-str-len )
 		    1+ 		\ compiled count byte accounted string size into transition!
 		    dup >r  \ memorize length at the return stack
-		    
+
 		    termlabel-table-cursor r> + to termlabel-table-cursor \ ajust table cursor to next free position
-		    
+
 			-1 to is-terminal-state \ mark this state as a terminal state
 			-1 						\ return true (has next state)
 		    ( str-addr str-len flag )
@@ -354,7 +354,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 \ read next line of machine file into the buffer
 \ if it matches the specification of an edge line, it will return true
 : machine-has-next-edge ( -- token-addr token-len flag )
-	
+
 	read-next-machine-line ( str-len flag ) \ writes the line to the buffer
 
 	0 = if 		\ __EOF__ --> no next edge obviously
@@ -389,7 +389,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 : transition-increment-example ( u1 u2 -- u3 f )
 	 over 1 = \ => terminal state
 	 if
-	 	s" terminated in state: " type s" finished" type cr
+	 	cr s" terminal state: " type s" finished" type cr
 	 	2drop
 	 	0 \ return false, stop machine loop
 	 	exit
@@ -430,7 +430,8 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	  	>r >r \ send str to return-stack
 	 	POSTPONE over token-cur-state POSTPONE literal POSTPONE = POSTPONE if
 	 		is-terminal-state if
-	 			s" terminated in state: "
+				POSTPONE cr
+	 			s" terminal state: "
 	 			swap
 	 			POSTPONE literal POSTPONE literal
 	 			POSTPONE type
@@ -477,7 +478,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 					POSTPONE endif
 				repeat
 
-				-1 ( C: token-addr token-len flag ) \ line read flag      
+				-1 ( C: token-addr token-len flag ) \ line read flag
 				>r >r >r \ push compile-time stack effect to return-stack
 			endif
 		 POSTPONE endif
