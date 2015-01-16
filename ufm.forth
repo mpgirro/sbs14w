@@ -1,11 +1,11 @@
 #! /usr/bin/env gforth
 
-\
+\ 
 \ Universal Turing Machine in Forth
-\
+\ 
 
 1000 Constant tape-length
-8 Constant tape-line-length
+8 Constant tape-line-length			\ maximum line length in tape file
 32 Constant machine-line-length 	\ maximum line length in machine file
 20 Constant termlabel-table-space 	\ size (= # rows) auf termlabel table
 32 Constant termlabel-length		\ maximum line length of termlabel table 
@@ -237,17 +237,17 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 : str-split ( str-addr str-len separator-addr separator-len -- token-addr token-len )
 	here >r 2swap ( sep-addr sep-len str-addr str-len )
 	begin
-    	2dup ( sep-addr sep-len str-addr str-len str-addr str-len ) 2, ( sep-addr sep-len str-addr str-len )  \ save this token
-    	2over ( sep-addr sep-len str-addr str-len sep-addr sep-len ) search ( sep-addr sep-len str-without-next-word-addr str-len flag )  \ find next separator
+    	2dup 2, 	 ( sep-addr sep-len str-addr str-len )  					   \ save this token
+    	2over search ( sep-addr sep-len str-without-next-word-addr str-len flag )  \ find next separator
 	while
-    	dup negate ( sep-addr sep-len str-addr str-len -str-len ) here 2 cells -  +! ( sep-addr sep-len str-addr str-len ) \ store length of word
-    	2over ( sep-addr sep-len str-addr str-len sep-addr sep-len ) nip ( sep-addr sep-len str-addr str-len sep-len ) /string \ start next search past separator
-    ( sep-addr sep-len str-addr str-len )
+    	dup negate 			( sep-addr sep-len str-addr str-len -str-len ) 
+		here 2 cells -  +!  ( sep-addr sep-len str-addr str-len )  \ store length of word
+    	2over nip /string   ( sep-addr sep-len str-addr str-len )  \ start next search past separator
   	repeat
   ( sep-addr sep-len str-without-next-word-addr str-len )
   	2drop 2drop ( counter )
   	r>  here over -   ( tokens length )
-  	dup negate allot           \ reclaim dictionary
+  	dup negate allot        \ reclaim dictionary
   	2 cells / 				\ turn byte length into token count
 	;
 
@@ -270,23 +270,18 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
 : machine-get-ptr-move ( token-addr -- ) get-next-edge-token to token-ptr-move ;
 
-\ see machine-get-ptr-move
-
 \ checks if a new state is defined in the machine file.
 \ sets the token variable in this case, returns a flag
 \ token-addr: address of token array
 \ token-len: count of elements in token array
 \ str-addr str-len: label-str for the label of a terminal state. 0 0 in case of a regular state
+\ returns boolean flag ( -1  = true, 0 = false ) 
 : machine-has-next-state ( token-addr token-len flag -- str-addr str-len flag )
-	\ ließt eine Zeile des files in den buffer
-	\ prüft ob zeile einen state beinhaltet oder __EOF__
-	\ returns boolean flag ( -1  = true, 0 = false )
 	0 to is-terminal-state \ reset the flag, we don't know if the new one will be one or not
 
-    ( str-addr str-len flag )
-    0 = if \ =0 if line was already read by has-next-edge
-        2drop \ drop token-addr and token-len --> they are 0 0 anyway
-    	read-next-machine-line \ writes the line to the buffer
+    0 = if 			\ true when next line has not been read by has-next-edge
+        2drop   	\ drop token-addr and token-len --> they are 0 0 anyway
+    	read-next-machine-line  \ writes the line to the buffer
         ( string-len flag )
     	0 = if \ __EOF__ reached --> no next state obviously
     		drop
@@ -298,18 +293,17 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
     endif
 
     case \ check which kind of line we process
-    	1 of \ = regular state (only one token)
-    		\ when it is one, there is a next state
-		    ( token-addr ) 2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
-			0 0 \ no label-str for this state (not a terminal state)
-			-1 \ return flag: has next state = true
+    	1 of \ = regular state (only one token) -  when it is one, there is a next state
+		    ( token-addr ) 
+			2@ ( str-addr str-len ) s>number? 2drop ( n ) to token-cur-state (  )
+			0 0 	\ no label-str for this state (not a terminal state)
+			-1 		\ return flag: has next state = true
 		endof
 		2 of \ = terminal state (two tokens in line)
 			dup ( token-addr token-addr )
 			2@ s>number? 2drop to token-cur-state \ read the state token
 			cell+ cell+ ( token-addr )
-			2@ \ read the terminal state label (= what is printed when machine terminates)
-		   
+			2@ 			\ read the terminal state label (= what is printed when machine terminates)
 		    ( str-addr str-len )
 		    
 		    \ the string here is in heap memory dictionary space.
@@ -328,23 +322,23 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    ( tmp-addr table-addr cstr-len )
 		    cmove \ copy counted string to table row
 		    (  )
-		 	0 termlabel-table-cursor termlabel-table \ TODO kann man mit return stack schöner machen
+		 	0 termlabel-table-cursor termlabel-table
 		    ( table-str-addr )
 		    0 termlabel-table-cursor termlabel-table 
-		    count nip \ TODO kann man mit return stack schöner machen (der wert ist ja str-len vom anfang...)
+		    count nip
 		    ( table-str-addr table-str-len )
-		    1+ \ compiled count byte accounted string size into transition!
-		    dup >r \ memorize length at the return stack
+		    1+ 		\ compiled count byte accounted string size into transition!
+		    dup >r  \ memorize length at the return stack
 		    
 		    termlabel-table-cursor r> + to termlabel-table-cursor \ ajust table cursor to next free position
 		    
 			-1 to is-terminal-state \ mark this state as a terminal state
-			-1 \ return true (has next state)
+			-1 						\ return true (has next state)
 		    ( str-addr str-len flag )
 		endof
 		0 of \ = __EOF__ (no token in line)
 		    ( token-addr ) drop
-			0 0 0 \ return false --> __EOF__ reached
+			0 0 0 	\ return false --> __EOF__ reached
 		endof
 	    \ ELSE: undefined amount of tokens in line --> nothing that we expect
 	    ( n )
@@ -356,31 +350,27 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
     endcase
 	;
 
+
 \ read next line of machine file into the buffer
 \ if it matches the specification of an edge line, it will return true
-
 : machine-has-next-edge ( -- token-addr token-len flag )
-	\ ließt nächste zeile des files in den buffer
-	\ prüft ob buffer ein new-line beinhaltet (= ende der edges des states)
-	\ retourniert true (= -1) wenn noch eine edge-line, false (=0) wenn state zu ende
-
+	
 	read-next-machine-line ( str-len flag ) \ writes the line to the buffer
 
-	0 = if \ __EOF__ --> no next edge obviously
+	0 = if 		\ __EOF__ --> no next edge obviously
 		drop
-		0 0 0 \ return false
-	    ( 0 0 flag )
+		0 0 0 	\ return false
 	else
         ( str-len ) machine-line-buffer swap ( line-addr line-len ) s"  " str-split \ parse the tokens
         ( token-addr token-len )
-		dup 4 = if \ true when there is a new edge
-			drop \ we dont need token-len any more ( token-addr )
-			dup machine-get-sym-read ( token-addr )
-			cell+ cell+ dup machine-get-sym-write ( token-addr )
-			cell+ cell+ dup machine-get-next-state ( token-addr )
-			cell+ cell+ machine-get-ptr-move ( )
+		dup 4 = if  \ true when there is a new edge
+			drop 	\ we dont need token-len any more ( token-addr )
+			dup machine-get-sym-read 				( token-addr )
+			cell+ cell+ dup machine-get-sym-write   ( token-addr )
+			cell+ cell+ dup machine-get-next-state  ( token-addr )
+			cell+ cell+ machine-get-ptr-move        ( )
 			0 0 \ no return string needed --> already parsed and values set
-			-1 \ return true flag, next edge found and tokens set
+			-1  \ return true flag, next edge found and tokens set
             ( 0 0 -1 )
 		else \ we did not detect a line containing 4 tokens. this means we have reached another state definition
 			0 \ no next edge, return false
@@ -447,7 +437,6 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
 	 			r> r> \ fetch label-str for this terminal state from return-stack
 	 		    ( C: str-addr str-len )
-	 		    ( u1 u2 str-addr str-len ) \ TODO dieser stack-effect beschreibt compile und interprete state gemixed. zur interprete time steht hier nur 1 1 auf dem stack!
 	 		    swap
 	 		    ( u1 u2 str-len str-addr )
 	 		    POSTPONE literal POSTPONE literal
@@ -456,8 +445,8 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	 		    ( I: u1 u2 )
 		 		POSTPONE 2drop
 		 		0 POSTPONE literal \ return false, stop machine loop
-		 		POSTPONE exit \ TODO how silly we are: we have to exit the transition word here, or else one of the next overs may accept the stack effect defined here
-		 	    (  )
+		 		POSTPONE exit \ exit the transition word here
+		 	    ( C:  )
 		 		0 0 0 ( C: token-addr token-len flag )
 		 		>r >r >r \ push compile-time stack effect to return-stack, so that the postponed endif will find its origin
 	 		else
@@ -484,7 +473,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 						endcase
 
 						-1 POSTPONE literal \ return true, keep machine loop working
-						POSTPONE exit \ TODO how silly we are: we have to exit the transition word here, or else one of the next overs may accept the stack effect defined here
+						POSTPONE exit \ exit the transition word here
 					POSTPONE endif
 				repeat
 
@@ -510,8 +499,6 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
 : run-turing-machine ( -- )
 
-	\ reset-tape-ptr \ TODO not necessary now, is it?
-
 	start-state
 	1 \ initial loop flag
 	begin
@@ -529,5 +516,4 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	cr
 	;
 
-\ run turing machine
 run-turing-machine
