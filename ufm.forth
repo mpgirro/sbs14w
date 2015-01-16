@@ -216,11 +216,10 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
 	\ run this loop from the leftmost symbol on the tape to the rightmost symbol
 	tape-right-rim tape-left-rim
-	\ cr ." tape-right-rim tape-left-rim" cr .s cr \ DEBUG
 	u+do
 		tape-addr tape-left-rim cells + \ calculate left part of the written tape
-		1 cells + \ TODO why has there to be this offset?
-		i tape-left-rim - cells + \ TODO calculate some addr on the tape; i does not start at 0, but at tape-left-rim! scrip the first line of this loop and calculate via this one only
+		1 cells + \ don't know why there has to be this offset
+		i tape-left-rim - cells + \ i does not start at 0, but at tape-left-rim! drop the first line of this loop and calculate via this one only
 	    ( addr ) @ ( n ) num>string ( str-addr str-len )
 		2dup
 		cr ." [ " i tape-left-rim - . ." ] : " type \ print number-str to command line ( we could also only dup and dot the number before cast to string )
@@ -310,42 +309,37 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 			2@ s>number? 2drop to token-cur-state \ read the state token
 			cell+ cell+ ( token-addr )
 			2@ \ read the terminal state label (= what is printed when machine terminates)
-		    
-		    \ TODO the str here produced is heap memory dictionary space. it "does not last forever. If you wait too long it will be overwritten. It depends on your system how long the string will last." --> great...
-		    
+		   
 		    ( str-addr str-len )
-		    ." [DEBUG] test 1: " .s cr \ DEBUG
-		    ." [DEBUG] " 2dup type cr \ DEBUG
+		    
+		    \ the string here is in heap memory dictionary space.
+		    \ it "does not last forever. If you wait too long it will be overwritten." 
+		    \ "It depends on your system how long the string will last."
+		    \  --> great. we'll have to copy it to our label table then...
+		    
 		    termlabel-tmp
-		    ." [DEBUG] test 11: " .s cr \ DEBUG
-		     s>cstr  \ make cell pair string to counted string (= table storage format)
-		    ." [DEBUG] test 12: " .s cr \ DEBUG
+		    s>cstr  \ make cell pair string to counted string (= table storage format)
 		    0 termlabel-table-cursor termlabel-table \ fetch the next free table addr
-		    ." [DEBUG] test 2: " .s cr \ DEBUG
 		    ( table-addr )
 		    termlabel-tmp swap
 		    ( tmp-addr table-addr )
 		    termlabel-tmp count nip
 		    1+ \ account for the count byte (damn those unstandardised strings in forth...)
 		    ( tmp-addr table-addr cstr-len )
-		    ." [DEBUG] test 3: " .s cr \ DEBUG
 		    cmove \ copy counted string to table row
 		    (  )
 		 	0 termlabel-table-cursor termlabel-table \ TODO kann man mit return stack schöner machen
 		    ( table-str-addr )
 		    0 termlabel-table-cursor termlabel-table 
-		    ." [DEBUG] test 4: " .s cr \ DEBUG
 		    count nip \ TODO kann man mit return stack schöner machen (der wert ist ja str-len vom anfang...)
 		    ( table-str-addr table-str-len )
 		    1+ \ compiled count byte accounted string size into transition!
 		    dup >r \ memorize length at the return stack
-		    ." [DEBUG] test 5: " .s cr \ DEBUG
-		    ." [DEBUG] label in termlabel table: " 2dup type cr
 		    
-		    termlabel-table-cursor r> + to termlabel-table-cursor \ increment table cursor
+		    termlabel-table-cursor r> + to termlabel-table-cursor \ ajust table cursor to next free position
 		    
 			-1 to is-terminal-state \ mark this state as a terminal state
-			-1 \ has next state: true
+			-1 \ return true (has next state)
 		    ( str-addr str-len flag )
 		endof
 		0 of \ = __EOF__ (no token in line)
@@ -361,6 +355,9 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	    ( str-addr str-len flag n )
     endcase
 	;
+
+\ read next line of machine file into the buffer
+\ if it matches the specification of an edge line, it will return true
 
 : machine-has-next-edge ( -- token-addr token-len flag )
 	\ ließt nächste zeile des files in den buffer
@@ -450,8 +447,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 
 	 			r> r> \ fetch label-str for this terminal state from return-stack
 	 		    ( C: str-addr str-len )
-	 			\ ." [DEBUG] compile time stack of terminal state: " .s cr \ DEBUG
-	 		    ( u1 u2 str-addr str-len ) \ dieser stack-effect beschreibt compile und interprete state gemixed. zur interprete time steht hier nur 1 1 auf dem stack!
+	 		    ( u1 u2 str-addr str-len ) \ TODO dieser stack-effect beschreibt compile und interprete state gemixed. zur interprete time steht hier nur 1 1 auf dem stack!
 	 		    swap
 	 		    ( u1 u2 str-len str-addr )
 	 		    POSTPONE literal POSTPONE literal
