@@ -6,14 +6,14 @@
 
 1000 Constant tape-length
 8 Constant tape-line-length
-32 Constant machine-line-length \ how long a line in the machien file may be at most
-20 Constant termlabel-table-space  \ how many termlabels can be saved
-32 Constant termlabel-length
-0 Value termlabel-table-cursor
+32 Constant machine-line-length 	\ maximum line length in machine file
+20 Constant termlabel-table-space 	\ size (= # rows) auf termlabel table
+32 Constant termlabel-length		\ maximum line length of termlabel table 
+0 Value termlabel-table-cursor		\ next free row in termlable table
 Create tape-addr tape-length cells allot
 Create tape-line-buffer tape-line-length allot
 Create machine-line-buffer machine-line-length chars allot
-Create termlabel-tmp termlabel-length chars allot
+Create termlabel-tmp termlabel-length chars allot \ tmp buffer to convert cell pair strings to counted strings
 0 Value tape-fd-in
 0 Value tape-fd-out
 0 Value machine-fd-in
@@ -33,7 +33,7 @@ tape-ptr Value tape-right-rim
 : open-tape-input ( addr u -- )  r/o open-file throw to tape-fd-in ;
 : open-tape-output ( addr u -- )  w/o create-file throw to tape-fd-out ;
 
-\ moves the tape-ptr to the cell containing the field representing the left neighbor
+\ move tape-ptr to the cell representing the left neighbor
 : tape-ptr-move-left ( -- )
 	tape-ptr 1 - to tape-ptr
 	tape-ptr tape-left-rim < if
@@ -41,7 +41,7 @@ tape-ptr Value tape-right-rim
 	endif
 	;
 
-\ moves the tape-ptr to the cell containing the field representing the right neighbor
+\ move tape-ptr to the cell representing the right neighbor
 : tape-ptr-move-right ( -- )
 	tape-ptr 1 + to tape-ptr
 	tape-ptr tape-right-rim > if
@@ -80,35 +80,35 @@ tape-ptr Value tape-right-rim
 	begin
 		tape-line-buffer tape-line-length tape-fd-in read-line ( counter counter buff-len flag errcode ) throw
 	while
-		( c c  buff-len )
+	    ( c c  buff-len )
 		tape-line-buffer
-		( c c buff-len buff-addr )
+	    ( c c buff-len buff-addr )
 		swap 2dup
-		( c c buff-addr buff-len buff-addr buff-len )
+	    ( c c buff-addr buff-len buff-addr buff-len )
 		s>number?
-		( c c buff-addr buff-len num-read 0 flag )  \ on error: 0 0 0
+	    ( c c buff-addr buff-len num-read 0 flag )  \ --> on error: 0 0 0
 		0= if \ conversion failed
-			( c c buff-addr buff-len 0 0 )
-			2drop
+		    ( c c buff-addr buff-len 0 0 )
+			2drop \ drop the 0's return on failed conversion
 			." [ERROR] malformed input tape. invalid symbol: " type cr
-			( c c )
+		    ( c c )
 			2drop
 			bye
 		else \ drop debug information
-			( c c buff-addr buff-len num-read 0 )
+		    ( c c buff-addr buff-len num-read 0 )
 			drop \ useless 0
 			rot rot
-			( c c num-read buff-addr buff-len )
-			2drop \ drop debug string
+		    ( c c num-read buff-addr buff-len )
+			2drop \ drop error msg string
 		endif
 
-		( counter counter num-read ) tape-addr tape-ptr cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
+	    ( counter counter num-read ) tape-addr tape-ptr 
+	    cells + rot ( counter num t-addr counter ) cells + ! ( counter ) \ consumes one counter, keeps the other
 		1 + dup ( counter counter )
 	repeat
-	( counter counter buff-len )
+    ( counter counter buff-len )
 	2drop drop \ drop length of line-buffer and counter
 
-	\ tape-ptr-move-right \ TODO we need this to move the tape ptr to the first cell just written to, but why is there this offset?
 	reset-tape-ptr
 	;
 
@@ -168,7 +168,7 @@ next-arg 2dup 0 0 d<> [IF]
 
 
 \ convert a cell pair string to a counted string 
-: s>cstr 
+: s>cstr ( str-addr str-len cstr-addr -- )
 	over over >r >r 
 	char+ swap chars 
 	cmove 
@@ -183,21 +183,22 @@ next-arg 2dup 0 0 d<> [IF]
 	here 16 chars allot \ allocate 16 chars space
     ( n addr )
 	>r dup >r abs s>d <# #s r> sign #>
-  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) c!
-    ( str-addr ) count ( str-addr str-len )
+  	r@ char+ swap dup >r cmove r> r> tuck ( str-addr str-len str-addr ) 
+  	c! ( str-addr ) 
+  	count ( str-addr str-len )
   	;
 
 \ lets us create 2D arrays for long term string storage
 : 2d-array
-	create               ( n1 n2 )        \ create an entry
-		dup              ( n1 n2 n2 )     \ = rows columns columns
-		,                ( n1 n2 )        \ compile the number of cells in a row
- 		* chars          ( n1*n2 )        \ calculate size
-		allot            ( -- )           \ allocate the number of cells
-	does>                ( n1 n2 a )      \ what to do at runtime
-		rot over @       ( n2 a n1 n3 )   \ get number of cells in a row
-		* rot + 1+       ( a n1*n3+n2+1 ) \ calculate offset
-		chars +          ( a+n1*n3+n2+1 ) \ calculate address
+	create  ( n1 n2 ) \ create an entry
+		dup  ( n1 n2 n2 ) \ = rows columns columns
+		,  ( n1 n2 )  \ compile the number of cells in a row
+ 		* chars  ( n1*n2 )  \ calculate size
+		allot  ( -- )  \ allocate the number of cells
+	does>  ( n1 n2 a )  \ what to do at runtime
+		rot over @  ( n2 a n1 n3 ) \ get number of cells in a row
+		* rot + 1+  ( a n1*n3+n2+1 ) \ calculate offset
+		chars +  ( a+n1*n3+n2+1 ) \ calculate address
 	;
 	
 \ define a lookup table for the terminal state labels (long term storage)
@@ -315,8 +316,11 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    ( str-addr str-len )
 		    ." [DEBUG] test 1: " .s cr \ DEBUG
 		    ." [DEBUG] " 2dup type cr \ DEBUG
-		    termlabel-tmp s>cstr  \ make cell pair string to counted string (= table storage format)
-		    termlabel-table-cursor 0 termlabel-table \ fetch the next free table addr
+		    termlabel-tmp
+		    ." [DEBUG] test 11: " .s cr \ DEBUG
+		     s>cstr  \ make cell pair string to counted string (= table storage format)
+		    ." [DEBUG] test 12: " .s cr \ DEBUG
+		    0 termlabel-table-cursor termlabel-table \ fetch the next free table addr
 		    ." [DEBUG] test 2: " .s cr \ DEBUG
 		    ( table-addr )
 		    termlabel-tmp swap
@@ -327,16 +331,18 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    ." [DEBUG] test 3: " .s cr \ DEBUG
 		    cmove \ copy counted string to table row
 		    (  )
-		 	termlabel-table-cursor 0 termlabel-table \ TODO kann man mit return stack schöner machen
+		 	0 termlabel-table-cursor termlabel-table \ TODO kann man mit return stack schöner machen
 		    ( table-str-addr )
-		    termlabel-table-cursor 0 termlabel-table 
+		    0 termlabel-table-cursor termlabel-table 
 		    ." [DEBUG] test 4: " .s cr \ DEBUG
 		    count nip \ TODO kann man mit return stack schöner machen (der wert ist ja str-len vom anfang...)
 		    ( table-str-addr table-str-len )
 		    1+ \ compiled count byte accounted string size into transition!
+		    dup >r \ memorize length at the return stack
 		    ." [DEBUG] test 5: " .s cr \ DEBUG
+		    ." [DEBUG] label in termlabel table: " 2dup type cr
 		    
-		    termlabel-table-cursor 1+ to termlabel-table-cursor \ increment table cursor
+		    termlabel-table-cursor r> + to termlabel-table-cursor \ increment table cursor
 		    
 			-1 to is-terminal-state \ mark this state as a terminal state
 			-1 \ has next state: true
