@@ -322,6 +322,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    termlabel-tmp swap
 		    ( tmp-addr table-addr )
 		    termlabel-tmp count nip
+		    1+ \ account for the count byte (damn those unstandardised strings in forth...)
 		    ( tmp-addr table-addr cstr-len )
 		    ." [DEBUG] test 3: " .s cr \ DEBUG
 		    cmove \ copy counted string to table row
@@ -332,6 +333,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 		    ." [DEBUG] test 4: " .s cr \ DEBUG
 		    count nip \ TODO kann man mit return stack schöner machen (der wert ist ja str-len vom anfang...)
 		    ( table-str-addr table-str-len )
+		    1+ \ compiled count byte accounted string size into transition!
 		    ." [DEBUG] test 5: " .s cr \ DEBUG
 		    
 		    termlabel-table-cursor 1+ to termlabel-table-cursor \ increment table cursor
@@ -424,7 +426,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	 endif
 	;
 
-: compile-transition ( C: -- ; I: undefined )
+: [compile-transition] ( C: -- ; I: undefined )
 	0 0 0 ( C: token-addr token-len flag )
 	  begin
 	    ( token-addr token-len flag )
@@ -484,7 +486,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 					POSTPONE endif
 				repeat
 
-				-1 ( C: token-addr token-len flag ) \ line read flag
+				-1 ( C: token-addr token-len flag ) \ line read flag      
 				>r >r >r \ push compile-time stack effect to return-stack
 			endif
 		 POSTPONE endif
@@ -501,7 +503,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 \ u3: resulting state
 \ f: loop flag
 : transition ( C: -- ; I: u1 u2 -- u3 f )
-	compile-transition
+	[compile-transition]
 	;
 
 : run-turing-machine ( -- )
@@ -522,6 +524,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 	repeat
 
 	s" result.tape" dump-tape
+	cr
 	;
 
 \ run turing machine
