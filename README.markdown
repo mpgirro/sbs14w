@@ -1,6 +1,6 @@
 # Universal Turing Machine in Forth
 
-*by Theresa Fröschl and Maximilian Irro*
+by [Theresa Fröschl](https://github.com/theresa77) and [Maximilian Irro](https://github.com/mpgirro)
 
 This is a project for the course [Stackbasierte Sprachen (2014W)](http://www.complang.tuwien.ac.at/anton/lvas/stack.html) (german for "*stack-based languages*") at [TU Wien](http://www.informatik.tuwien.ac.at/english).
 
@@ -44,7 +44,7 @@ The state transition of the machine is done in a loop calling the `transition` w
 
 ## Structure of transition word
 
-The code structure of `transition` (which will be compiled depending on the machine-file) looks like this for the `machines/increment.machine`:
+The code structure of `transition` (which will be compiled depending on the machine-file) looks like this for the [machines/increment.machine](machines/increment.machine):
 
 ```forth
 : transition ( cur-state sym-read -- next-state flag )
