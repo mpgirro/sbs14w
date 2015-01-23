@@ -3,6 +3,9 @@
 \
 \ Universal Turing Machine in Forth
 \
+\ (c) 2014-2015
+\ by Maximilian Irro and Theresa Fröschl
+\
 
 1000 Constant tape-length
 8 Constant tape-line-length         \ maximum line length in tape file
@@ -435,7 +438,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 			swap
 			POSTPONE literal POSTPONE literal
 			POSTPONE type
-	
+
 			r> r> \ fetch label-str for this terminal state from return-stack
 		    ( C: str-addr str-len )
 			swap
@@ -472,7 +475,7 @@ termlabel-table-space termlabel-length 2d-array termlabel-table
 						 0 of POSTPONE tape-ptr-move-stay  endof
 						 1 of POSTPONE tape-ptr-move-right endof
 					endcase
-	
+
 					-1 POSTPONE literal 	\ return true, keep machine loop working
 					POSTPONE exit 			\ exit the transition word here
 				POSTPONE endif

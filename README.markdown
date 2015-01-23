@@ -61,4 +61,24 @@ The code structure of `transition` (which will be compiled depending on the mach
 	THEN ; ok
 ```
 
-The `over <some-literal> = if` sequences will check for the state the machine is currently occupying. The `dup <some-literal>` = if` parts then ckec the current symbol on the tape. With this mechanism it is decided which action the machine will perform next.
+The `over <some-literal> = if` sequences will check for the state the machine is currently occupying. The `dup <some-literal> = if` parts then check the current symbol on the tape. With this mechanism it is decided which action the machine will perform next.
+
+## Resources
+
+### Program:
+
++ [ufm.forth](ufm.forth)
+
+### Machines:
+
++ [increment.machine](machines/increment.machine) -- increment the amount of `1`-symbols on the tape by one (at the right edge).
++ [multi3.machine](machines/multi3.machine) -- check if tape content holds a multiple of 3 `1`-symbols.
++ [palindrom.machine](machines/palindrom.machine) -- check if tape content is a palindrom. Border markers are `11` (left) and `33` (right).
+
+### Tapes:
+
++ [increment.tape](tapes/increment.tape)
++ [multi3-yes.tape](tapes/multi3-yes.tape) -- [multi3.machine](machines/multi3.machine) should recognize a multiple of 3 `1`-symbols.
++ [multi3-no.tape](tapes/multi3-no.tape) -- [multi3.machine](machines/multi3.machine) should *not*  recognize a multiple of 3 `1`-symbols
++ [palindrom-ok.tape](tapes/palindrom-ok.tape) -- [palindrom.machine](machines/palindrom.machine) should accept a palindrom
++ [palindrom-nok.tape](tapes/palindrom-nok.tape) -- [palindrom.machine](machines/palindrom.machine) should *not* accept a palindrom
