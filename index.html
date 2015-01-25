@@ -84,17 +84,19 @@
 
     <p>We provide some example machines in <a href="machines/">machines/</a> and tapes to test them in <a href="tapes/">tapes/</a>. The basic file format looks like this:</p>
 
-    <pre><code>start-state
-        state-term1 label
-        state1
-        sym-read sym-write next-state tape-ptr-move
-        sym-read sym-write next-state tape ptr-move
-        state-term2 otherlabel
-        state-term3 yetanotherlabel
-        state2
-        sym-read sym-write next-state tape-ptr-move
-        sym-read sym-write next-state tape ptr-move
-    </code></pre>
+<pre><code>
+    start-state
+    state-term1 label
+    state1
+    sym-read sym-write next-state tape-ptr-move
+    sym-read sym-write next-state tape ptr-move
+    state-term2 otherlabel
+    state-term3 yetanotherlabel
+    state2
+    sym-read sym-write next-state tape-ptr-move
+    sym-read sym-write next-state tape ptr-move
+
+</code></pre>
 
     <p>The first line <strong>has</strong> to be the <code>start-state</code>. All following lines are state descriptions. A <code>term-state</code> (terminal state) is followbed by a <code>label</code> which is a string that will be the output of UFM if the machine terminates in this state. A line containing just a <code>state</code> token starts the definition of a regular state. All following lines until a new <code>state</code> or <code>state-term</code> line are the edge dedinitions for this state. An edge line has to consist of:</p>
 
@@ -116,17 +118,17 @@
     <p>The code structure of <code>transition</code> (which will be compiled depending on the machine-file) looks like this for the <a href="machines/increment.machine">machines/increment.machine</a>:</p>
 
     <pre lang="forth"><code>: transition ( cur-state sym-read -- next-state flag )
-        over 1 =
-        IF     cr 4546001056 16 type 4545995737 9 type cr 2drop 0 EXIT
-        THEN
-        over 0 =
-        IF     dup 1 =
+    over 1 =
+    IF     cr 4546001056 16 type 4545995737 9 type cr 2drop 0 EXIT
+    THEN
+    over 0 =
+    IF     dup 1 =
         IF     2drop 1 tape-write 0 tape-ptr-move-right -1 EXIT
         THEN
         dup 0 =
         IF     2drop 1 tape-write 1 tape-ptr-move-stay -1 EXIT
         THEN
-        THEN ; ok
+    THEN ; ok
     </code></pre>
 
     <p>The <code>over &lt;some-literal&gt; = if</code> sequences will check for the state the machine is currently occupying. The <code>dup &lt;some-literal&gt; = if</code> parts then check the current symbol on the tape. With this mechanism it is decided which action the machine will perform next.</p>
