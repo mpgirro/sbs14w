@@ -2,7 +2,7 @@
 
 by [Theresa Fröschl](https://github.com/theresa77) and [Maximilian Irro](https://github.com/mpgirro)
 
-This is a project for the course [Stackbasierte Sprachen (2014W)](http://www.complang.tuwien.ac.at/anton/lvas/stack.html) (german for "*stack-based languages*") at [TU Wien](http://www.informatik.tuwien.ac.at/english). The [repository is available in GitHub](https://github.com/mpgirro/universal-forth-machine).
+This is a project for the course [Stackbasierte Sprachen (2014W)](http://www.complang.tuwien.ac.at/anton/lvas/stack.html) (german for "*stack-based languages*") at [TU Wien](http://www.informatik.tuwien.ac.at/english). The [repository is available on GitHub](https://github.com/mpgirro/universal-forth-machine).
 
 We amined to write a Universal Turing Machine using the language Forth. We developed our program for the [Gforth](http://www.complang.tuwien.ac.at/forth/gforth/Docs-html/index.html#Top) interpreter. If used with other Forth interpreters there might be issues (we never tested).
 
