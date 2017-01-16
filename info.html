@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta name="generator" content="Madoko, version 1.0.3" />
+  <meta name="viewport" content="initial-scale=1.0" />
+  <meta name="author" content="by [Theresa Fröschl](https://github.com/theresa77) and [Maximilian Irro](https://github.com/mpgirro)" />
+  <title>Universal Turing Machine in Forth</title>
+  <style type="text/css"  class="link">
+  /*# sourceURL=madoko.css */
+  
+  .madoko .toc>.tocblock .tocblock .tocblock {
+    margin-left: 2.25em;
+  }
+  .madoko .toc>.tocblock .tocblock {
+    margin-left: 1.5em;
+  }
+  .madoko .toc-contents>.tocblock>.tocitem {
+    font-weight: bold;
+  }
+  .madoko .toc {
+    margin-top: 1em;
+  }
+  .madoko p.para-continue {
+    margin-bottom: 0pt;
+  }
+  .madoko .para-block+p {
+    margin-top: 0pt;
+  }
+  .madoko ul.para-block, .madoko ol.para-block {
+    margin-top: 0pt;
+    margin-bottom: 0pt;
+  }
+  .madoko ul.para-end, .madoko ol.para-end {
+    margin-bottom: 1em;
+  }
+  .madoko dl {
+    margin-left: 0em;
+  }
+  .madoko blockquote {
+    font-style: italic;
+  }
+  .madoko a.localref {
+    text-decoration: none;
+  }
+  .madoko a.localref:hover {
+    text-decoration: underline;
+  }
+  .madoko .footnotes {
+    font-size: smaller;
+    margin-top: 2em;
+  }
+  .madoko .footnotes hr {
+    width: 50%;
+    text-align: left;
+  }
+  .madoko .footnote { 
+    margin-left: 1em;
+  }
+  .madoko .footnote-before {
+    margin-left: -1em;
+    width: 1em;
+    display: inline-block;
+  }
+  .madoko .align-center, .madoko .align-center>p {
+    text-align: center !important;
+  }
+  .madoko .align-center pre {
+    text-align: left;
+  }
+  .madoko .align-center>* {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .madoko .align-left, .madoko .align-left>p {
+    text-align: left !important;
+  }
+  .madoko .align-left>* {
+    margin-left: 0pt !important;
+    margin-right: auto !important;
+  }
+  .madoko .align-right, .madoko .align-right>p {
+    text-align: right !important;
+  }
+  .madoko .align-right>* {
+    margin-left: auto !important;
+    margin-right: 0pt !important;
+  }
+  .madoko .align-center>table,
+  .madoko .align-left>table,
+  .madoko .align-right>table {
+    text-align: left !important;
+  }
+  .madoko .equation-before {
+    float: right;
+  }
+  .madoko .bibitem {
+    font-size: smaller;
+  }
+  .madoko .bibsearch {
+    font-size: x-small;
+    text-decoration:none;
+    color: black;
+    font-family: "Segoe UI Symbol", Symbola, serif;
+  }
+  .madoko .block, .madoko .figure, .madoko .bibitem, .madoko .equation, .madoko div.math {
+    margin-top: 1ex;
+    margin-bottom: 1ex;
+  }
+  .madoko .figure {
+    padding: 0.5em;
+    margin-left: 0pt;
+    margin-right: 0pt;
+  }
+  .madoko .hidden {
+    display: none;
+  }
+  .madoko .invisible {
+    visibility: hidden;
+  }
+  .madoko.preview .invisible {
+    visibility: visible;
+    opacity: 0.5;
+  }
+  .madoko code.code, .madoko span.code {
+    white-space: pre-wrap;
+  }
+  .madoko hr, hr.madoko {
+    border: none;
+    border-bottom: black solid 1px;
+    margin-bottom: 0.5ex;
+  }
+  .madoko .framed>*:first-child {
+    margin-top: 0pt;
+  }
+  .madoko .framed>*:last-child {
+    margin-bottom: 0pt;
+  }
+  .madoko ul.list-style-type-dash {
+      list-style-type: none !important;
+  }
+  .madoko ul.list-style-type-dash > li:before {
+      content: "\2013"; 
+      position: absolute;
+      margin-left: -1em; 
+  }
+  .madoko table.madoko {
+    border-collapse: collapse;
+  }
+  .madoko td, .madoko th {
+    padding: 0ex 0.5ex;
+    margin: 0pt;
+    vertical-align: top;
+  }
+  .madoko .cell-border-left {
+    border-left: 1px solid black;
+  }
+  .madoko .cell-border-right {
+    border-right: 1px solid black;
+  }
+  .madoko thead>tr:first-child>.cell-line,
+  .madoko tbody:first-child>tr:first-child>.cell-line {
+    border-top: 1px solid black;
+    border-bottom: none;
+  }
+  .madoko .cell-line, .madoko .cell-double-line {
+    border-bottom: 1px solid black;
+    border-top: none;
+  }
+  .madoko .cell-double-line {
+    border-top: 1px solid black;
+    padding-top: 1.5px !important;
+  }
+  .madoko .input-mathpre .MathJax_Display {
+    text-align: left !important;
+  }
+  .madoko div.input-mathpre {
+    text-align: left;
+    margin-top: 1.5ex;
+    margin-bottom: 1ex;
+  }
+  .madoko .math-rendering {
+    color: gray;
+  }
+  .madoko .mathdisplay {
+    text-align: center;
+  }
+  .madoko .pretty table {
+    border-collapse: collapse;
+  }
+  .madoko .pretty td {
+    padding: 0em;
+  }
+  .madoko .pretty td.empty {
+    min-width: 1.5ex;
+  }
+  .madoko .pretty td.expander {
+    width: 100em;
+  }
+  body.madoko, .madoko .serif {
+    font-family: Cambria,"Times New Roman","Liberation Serif","Times",serif;
+  }
+  .madoko .sans-serif {
+    font-family: "Calibri", "Optima", sans-serif;
+  }
+  .madoko .symbol {
+    font-family: "Segoe UI Symbol", Symbola, serif;
+  }
+  body.madoko {  
+    -webkit-text-size-adjust: 100%;       
+    text-rendering: optimizeLegibility;
+  }
+  body.madoko {
+    max-width: 88ex; 
+    margin: 1em auto;
+    padding: 0em 2em;  
+  }
+  body.preview.madoko {
+    padding: 0em 1em;
+  }
+  .madoko p {
+    text-align: justify;
+  }
+  .madoko h1, .madoko h2, .madoko h3, .madoko h4 { 
+    margin-top: 1.22em; 
+    margin-bottom: 1ex;
+  }
+  .madoko h1+p, .madoko h2+p, .madoko h3+p, .madoko h4+p, .madoko h5+p  { 
+    margin-top: 1ex;    
+  }
+  .madoko h5, .madoko h6 { 
+    margin-top: 1ex;
+    font-size: 1em;
+  }
+  .madoko h5 { 
+    margin-bottom: 0.5ex;
+  }
+  .madoko h5 + p {
+    margin-top: 0.5ex;
+  }
+  .madoko h6 { 
+    margin-bottom: 0pt;
+  }
+  .madoko h6 + p {
+    margin-top: 0pt;
+  }
+  .madoko pre, .madoko code, .madoko kbd, .madoko samp, .madoko tt, 
+  .madoko .monospace, .madoko .token-indent, .madoko .reveal pre, .madoko .reveal code, .madoko .email {
+    font-family: Consolas,"Andale Mono WT","Andale Mono",Lucida Console,Monaco,monospace,monospace;
+    font-size: 0.85em;
+  }
+  .madoko pre code, .madoko .token-indent {
+    font-size: 0.95em;
+  }
+  .madoko pre code {
+    font-family: inherit !important;
+  }
+  .madoko ol.linenums li {
+    background-color: white;
+    list-style-type: decimal;
+  }
+  .madoko .remote {
+    background-color: #F0FFF0;
+  }
+  .madoko .remote + * {
+    margin-top: 0pt;
+  }
+  @media print {
+    body.madoko {
+      font-size: 10pt;
+    }
+    @page {
+      margin: 1in 1.5in;
+    }
+  }
+  @media only screen and (max-device-width:1024px) {
+    body.madoko {
+      padding: 0em 0.5em;    
+    }
+    .madoko li {
+      text-align: left;
+    }
+  }
+  
+    </style>
+  
+  </head>
+<body class="madoko">
+
+<div class="body madoko" style="line-adjust:0">
+
+<div class="titleblock align-center para-block" data-line="4" style="text-align:center;line-adjust:0">
+<div class="titleheader align-center" data-line="4" style="text-align:center;line-adjust:0">
+<div class="title para-block" data-line="4" style="font-size:xx-large;font-weight:bold;margin-bottom:0.5ex;line-adjust:0"><span data-line="4"></span>Universal Turing Machine in Forth</div></div>
+<div class="authors align-center" data-line="9" style="text-align:center;width:80%;line-adjust:0"><table class="authorrow columns block" data-line="9" style="margin-top:2ex;width:100%;line-adjust:0">
+<tbody><tr><td class="author column" data-line="9" style="text-align:center;line-adjust:0">
+<div class="authorname" data-line="9" style="font-size:large;line-adjust:0"><span data-line="9"></span>by&nbsp;<a href="https://github.com/theresa77">Theresa Fröschl</a> and&nbsp;<a href="https://github.com/mpgirro">Maximilian Irro</a></div></td></tr></tbody></table></div></div>
+<p class="p noindent para-continued" data-line="6"><span data-line="6"></span>This is a project for the course<span data-line="6"></span>&nbsp;<a href="http://www.complang.tuwien.ac.at/anton/lvas/stack.html">Stackbasierte Sprachen (2014W)</a><span data-line="6"></span> (german for <span data-line="6"></span><em class="em-star1">stack-based languages</em><span data-line="6"></span>) at<span data-line="6"></span>&nbsp;<a href="http://www.informatik.tuwien.ac.at/english">TU Wien</a><span data-line="6"></span>. The repository is<span data-line="6"></span>&nbsp;<a href="https://github.com/mpgirro/universal-forth-machine">available on GitHub</a><span data-line="6"></span>.
+</p>
+<p class="p indent" data-line="8"><span data-line="8"></span>We amined to write a Universal Turing Machine using the language Forth. We developed our program for the<span data-line="8"></span>&nbsp;<a href="http://www.complang.tuwien.ac.at/forth/gforth/Docs-html/index.html#Top">Gforth</a><span data-line="8"></span> interpreter. If used with other Forth interpreters there might be issues (we never tested).
+</p><h2 id="sec-name-explanation" class="h1" data-line="10" data-heading-depth="1" style="display:block"><span data-line="10"></span><span class="heading-before"><span class="heading-label">1</span>.&#8194;</span><span data-line="10"></span>Name explanation</h2>
+<p class="p noindent" data-line="12"><span data-line="12"></span>We call our program <span data-line="12"></span><em class="em-star1">Universal Forth Machine</em><span data-line="12"></span> (UFM), a wordplay between <span data-line="12"></span>&#8220;Universal Turing Machine&#8221;<span data-line="12"></span>, being written in Forth, and Forth being a stack machine.
+</p><h2 id="sec-usage" class="h1" data-line="14" data-heading-depth="1" style="display:block"><span data-line="14"></span><span class="heading-before"><span class="heading-label">2</span>.&#8194;</span><span data-line="14"></span>Usage</h2>
+<pre class="para-block pre-indented" data-line="16" style="display:block"><code>ufm.forth /path/to/machine /path/to/tape</code></pre><h2 id="sec-machine-specification-format" class="h1" data-line="19" data-heading-depth="1" style="display:block"><span data-line="19"></span><span class="heading-before"><span class="heading-label">3</span>.&#8194;</span><span data-line="19"></span>Machine specification format</h2>
+<p class="p noindent" data-line="21"><span data-line="21"></span>We provide some example machines in<span data-line="21"></span>&nbsp;<a href="machines/">machines/</a><span data-line="21"></span> and tapes to test them in<span data-line="21"></span>&nbsp;<a href="tapes/">tapes/</a><span data-line="21"></span>. The basic file format looks like this:
+</p>
+<pre class="para-block pre-fenced pre-fenced3" data-line="23" data-line-first="24" style="display:block"><code data-line="24">start-state
+state-term1 label
+state1
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move
+state-term2 otherlabel
+state-term3 yetanotherlabel
+state2
+sym-read sym-write next-state tape-ptr-move
+sym-read sym-write next-state tape ptr-move</code></pre>
+<p class="p noindent para-continued" data-line="36"><span data-line="36"></span>The first line <span data-line="36"></span><strong class="strong-star2">has</strong><span data-line="36"></span> to be the <span data-line="36"></span><code class="code code1">start-state</code><span data-line="36"></span>. All following lines are state descriptions. A <span data-line="36"></span><code class="code code1">term-state</code><span data-line="36"></span> (terminal state) is followbed by a <span data-line="36"></span><code class="code code1">label</code><span data-line="36"></span> which is a string that will be the output of UFM if the machine terminates in this state. A line containing just a <span data-line="36"></span><code class="code code1">state</code><span data-line="36"></span> token starts the definition of a regular state. All following lines until a new <span data-line="36"></span><code class="code code1">state</code><span data-line="36"></span> or <span data-line="36"></span><code class="code code1">state-term</code><span data-line="36"></span> line are the edge dedinitions for this state. An edge line has to consist of:
+</p>
+<ol class="ol compact" data-line="38">
+<li class="li ol-li compact-li" data-line="38"><span data-line="38"></span><code class="code code1">sym-read</code><span data-line="38"></span>: the symbol read on the tape. If the machine is in the currently defined state, and this symbol is read, the machine will execute the following actions of this line. Think of it as the edge label when picturing the turing machine as a graph.
+</li>
+<li class="li ol-li compact-li" data-line="39"><span data-line="39"></span><code class="code code1">sym-write</code><span data-line="39"></span>: the symbol to write onto the current tape position.
+</li>
+<li class="li ol-li compact-li" data-line="40"><span data-line="40"></span><code class="code code1">next-state</code><span data-line="40"></span>: the next state the turing (state-)machine goes to.
+</li>
+<li class="li ol-li compact-li" data-line="41"><span data-line="41"></span><code class="code code1">tape-ptr-move</code><span data-line="41"></span>: the direction the tape pointer (<span data-line="41"></span><code class="code code1">tape-ptr</code><span data-line="41"></span>) moves. It can go one step to the left (<span data-line="41"></span><code class="code code1">-1</code><span data-line="41"></span>) or right (<span data-line="41"></span><code class="code code1">1</code><span data-line="41"></span>), or just stay (<span data-line="41"></span><code class="code code1">0</code><span data-line="41"></span>) at its current position.
+</li></ol>
+
+<p class="p noindent" data-line="43"><span data-line="43"></span><strong class="strong-star2">Note</strong><span data-line="43"></span> that all tokens except the <span data-line="43"></span><code class="code code1">label</code><span data-line="43"></span> for terminal states support literals only! They will all be converted into numbers. So no strings allowed here.
+</p><h2 id="sec-special-stack-feature" class="h1" data-line="45" data-heading-depth="1" style="display:block"><span data-line="45"></span><span class="heading-before"><span class="heading-label">4</span>.&#8194;</span><span data-line="45"></span>Special stack feature</h2>
+<p class="p noindent" data-line="47"><span data-line="47"></span>The state transition of the machine is done in a loop calling the <span data-line="47"></span><code class="code code1">transition</code><span data-line="47"></span> word. This is a word that will be dynamically compiled at runtime just before it<span data-line="47"></span>&#39;<span data-line="47"></span>s first execution. Therefore the code of <span data-line="47"></span><code class="code code1">transition</code><span data-line="47"></span> is not hardcoded in the program file, but will be generated by a special compilation word <span data-line="47"></span><code class="code code1">[compile-transition]</code><span data-line="47"></span> which is <span data-line="47"></span><code class="code code1">compile-only</code><span data-line="47"></span> and <span data-line="47"></span><code class="code code1">immediate</code><span data-line="47"></span>. It will compile Forth code into <span data-line="47"></span><code class="code code1">transition</code><span data-line="47"></span> based on the input machine specification file. Have a look at the colon definition of <span data-line="47"></span><code class="code code1">transition</code><span data-line="47"></span> in the source code, and at runtime using <span data-line="47"></span><code class="code code1">see transition</code><span data-line="47"></span>.
+</p><h2 id="sec-structure-of-transition-word" class="h1" data-line="49" data-heading-depth="1" style="display:block"><span data-line="49"></span><span class="heading-before"><span class="heading-label">5</span>.&#8194;</span><span data-line="49"></span>Structure of transition word</h2>
+<p class="p noindent" data-line="51"><span data-line="51"></span>The code structure of <span data-line="51"></span><code class="code code1">transition</code><span data-line="51"></span> (which will be compiled depending on the machine-file) looks like this for the<span data-line="51"></span>&nbsp;<a href="machines/increment.machine">machines/increment.machine</a><span data-line="51"></span>:
+</p>
+<pre class="para-block pre-fenced pre-fenced3 language-forth lang-forth forth" data-line="53" data-line-first="54" style="display:block"><code data-line="54">: transition ( cur-state sym-read -- next-state flag )
+    over 1 =
+    IF     cr 4546001056 16 type 4545995737 9 type cr 2drop 0 EXIT
+    THEN
+    over 0 =
+    IF     dup 1 =
+        IF     2drop 1 tape-write 0 tape-ptr-move-right -1 EXIT
+        THEN
+        dup 0 =
+        IF     2drop 1 tape-write 1 tape-ptr-move-stay -1 EXIT
+        THEN
+    THEN ; ok</code></pre>
+<p class="p noindent para-continued" data-line="68"><span data-line="68"></span>The <span data-line="68"></span><code class="code code1">over &lt;some-literal&gt; = if</code><span data-line="68"></span> sequences will check for the state the machine is currently occupying. The <span data-line="68"></span><code class="code code1">dup &lt;some-literal&gt; = if</code><span data-line="68"></span> parts then check the current symbol on the tape. With this mechanism it is decided which action the machine will perform next.
+</p><h2 id="sec-resources" class="h1" data-line="70" data-heading-depth="1" style="display:block"><span data-line="70"></span><span class="heading-before"><span class="heading-label">6</span>.&#8194;</span><span data-line="70"></span>Resources</h2>
+<p class="p noindent" data-line="72"><span data-line="72"></span>Program:
+</p>
+<ul class="ul list-dash compact" data-line="74">
+<li class="li ul-li list-dash-li compact-li" data-line="74"><span data-line="74"></span><a href="ufm.forth">ufm.forth</a><span data-line="74"></span>
+</li></ul>
+
+<p class="p noindent" data-line="76"><span data-line="76"></span>Machines:
+</p>
+<ul class="ul list-dash compact" data-line="78">
+<li class="li ul-li list-dash-li compact-li" data-line="78"><span data-line="78"></span><a href="machines/increment.machine">increment.machine</a><span data-line="78"></span> <span data-line="78"></span>&#8211;<span data-line="78"></span> increment the amount of <span data-line="78"></span><code class="code code1">1</code><span data-line="78"></span>-symbols on the tape by one (at the right edge).
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="79"><span data-line="79"></span><a href="machines/multi3.machine">multi3.machine</a><span data-line="79"></span> <span data-line="79"></span>&#8211;<span data-line="79"></span> check if tape content holds a multiple of 3 <span data-line="79"></span><code class="code code1">1</code><span data-line="79"></span>-symbols.
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="80"><span data-line="80"></span><a href="machines/palindrom.machine">palindrom.machine</a><span data-line="80"></span> <span data-line="80"></span>&#8211;<span data-line="80"></span> check if tape content is a palindrom. Border markers are <span data-line="80"></span><code class="code code1">11</code><span data-line="80"></span> (left) and <span data-line="80"></span><code class="code code1">33</code><span data-line="80"></span> (right).
+</li></ul>
+
+<p class="p noindent" data-line="82"><span data-line="82"></span>Tapes:
+</p>
+<ul class="ul list-dash compact" data-line="84">
+<li class="li ul-li list-dash-li compact-li" data-line="84"><span data-line="84"></span><a href="tapes/increment.tape">increment.tape</a><span data-line="84"></span>
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="85"><span data-line="85"></span><a href="tapes/multi3-yes.tape">multi3-yes.tape</a><span data-line="85"></span> <span data-line="85"></span>&#8211;<span data-line="85"></span> the<span data-line="85"></span>&nbsp;<a href="machines/multi3.machine">multi3.machine</a><span data-line="85"></span> should recognize a multiple of 3 <span data-line="85"></span><code class="code code1">1</code><span data-line="85"></span>-symbols.
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="86"><span data-line="86"></span><a href="tapes/multi3-no.tape">multi3-no.tape</a><span data-line="86"></span> <span data-line="86"></span>&#8211;<span data-line="86"></span> the<span data-line="86"></span>&nbsp;<a href="machines/multi3.machine">multi3.machine</a><span data-line="86"></span> should <span data-line="86"></span><em class="em-star1">not</em><span data-line="86"></span>  recognize a multiple of 3 <span data-line="86"></span><code class="code code1">1</code><span data-line="86"></span>-symbols.
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="87"><span data-line="87"></span><a href="tapes/palindrom-ok.tape">palindrom-ok.tape</a><span data-line="87"></span> <span data-line="87"></span>&#8211;<span data-line="87"></span> the<span data-line="87"></span>&nbsp;<a href="machines/palindrom.machine">palindrom.machine</a><span data-line="87"></span> should accept a palindrom.
+</li>
+<li class="li ul-li list-dash-li compact-li" data-line="88"><span data-line="88"></span><a href="tapes/palindrom-nok.tape">palindrom-nok.tape</a><span data-line="88"></span> <span data-line="88"></span>&#8211;<span data-line="88"></span> the<span data-line="88"></span>&nbsp;<a href="machines/palindrom.machine">palindrom.machine</a><span data-line="88"></span> should <span data-line="88"></span><em class="em-star1">not</em><span data-line="88"></span> accept a palindrom.
+</li></ul>
+<span data-line=""></span></div>
+</body>
+
+</html>
